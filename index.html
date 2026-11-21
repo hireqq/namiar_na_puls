@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Misja AED – wspólny zbiór danych o defibrylatorach</title>
+  <meta name="description" content="Prototyp narzędzia do łączenia danych o defibrylatorach AED z wielu źródeł w jeden zbiór zgodny ze wzorcem dla dane.gov.pl. Działa w całości w przeglądarce.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#tresc">Przejdź do treści</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="#start">
+        <svg class="brand__icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <path d="M16 28s-11-6.6-11-15A6 6 0 0 1 16 9a6 6 0 0 1 11 4c0 8.4-11 15-11 15z" fill="currentColor"/>
+          <path d="M17.5 11l-4 7h3.5l-1.5 6 5-8h-3.8l1.8-5z" fill="#fff"/>
+        </svg>
+        <span class="brand__text">Misja AED <span class="brand__sub">prototyp</span></span>
+      </a>
+      <nav aria-label="Menu główne">
+        <ul class="top-nav">
+          <li><a href="#start">Start</a></li>
+          <li><a href="#zrodla">Scal dane</a></li>
+          <li><a href="#formularz">Formularz dysponenta</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Pasek kroków (widoczny tylko na ekranach ścieżki koordynatora) -->
+  <div class="stepper-wrap" id="stepper" hidden>
+    <div class="container">
+      <nav aria-label="Etapy scalania danych">
+        <ol class="stepper">
+          <li><a href="#zrodla" data-step="zrodla"><span class="stepper__num" aria-hidden="true">1</span> Źródła danych</a></li>
+          <li><a href="#mapowanie" data-step="mapowanie"><span class="stepper__num" aria-hidden="true">2</span> Mapowanie kolumn</a></li>
+          <li><a href="#walidacja" data-step="walidacja"><span class="stepper__num" aria-hidden="true">3</span> Walidacja i duplikaty</a></li>
+          <li><a href="#wynik" data-step="wynik"><span class="stepper__num" aria-hidden="true">4</span> Wynik i eksport</a></li>
+        </ol>
+      </nav>
+      <p class="stepper-compact" id="stepper-compact"></p>
+    </div>
+  </div>
+
+  <main id="tresc" class="container" tabindex="-1">
+
+    <!-- ===================== START ===================== -->
+    <section data-route="start" aria-labelledby="h-start">
+      <h1 id="h-start" tabindex="-1">Wspólny zbiór danych o defibrylatorach AED</h1>
+      <p class="lead">Przy nagłym zatrzymaniu krążenia liczy się każda minuta. To narzędzie łączy rozproszone dane o AED
+        (od gmin, instytucji, firm i z OpenStreetMap) w jeden zbiór zgodny ze wzorcem, gotowy do publikacji w portalu
+        <span lang="en">dane.gov.pl</span>.</p>
+      <p class="note">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6z" fill="currentColor"/></svg>
+        Wszystko dzieje się w Twojej przeglądarce. Wgrane pliki nie są nigdzie wysyłane.
+      </p>
+
+      <div class="cards cards--2">
+        <article class="card card--path">
+          <h2>Scal dane z wielu źródeł</h2>
+          <p>Dla koordynatora (np. urzędu wojewódzkiego lub ministerstwa). Pobierz dane z OpenStreetMap i dane.gov.pl,
+            dodaj pliki dysponentów, usuń duplikaty i oznacz źródło każdego rekordu.</p>
+          <ol class="mini-steps">
+            <li>Wybierz źródła</li>
+            <li>Dopasuj kolumny do wzorca</li>
+            <li>Sprawdź błędy i duplikaty</li>
+            <li>Pobierz zbiór (CSV, JSON, XLSX)</li>
+          </ol>
+          <a class="btn btn--primary" href="#zrodla">Rozpocznij scalanie</a>
+        </article>
+
+        <article class="card card--path">
+          <h2>Udostępnij dane o swoich AED</h2>
+          <p>Dla dysponenta (szkoły, urzędu, firmy, OSP). Wypełnij prosty formularz albo pobierz szablon i opublikuj
+            plik w portalu dane.gov.pl.</p>
+          <ul class="link-list">
+            <li><a href="wzorzec/szablon_aed.csv" download>Pobierz szablon CSV</a> <span class="meta">(same nagłówki)</span></li>
+            <li><a href="wzorzec/wzorcowy_zakres_danych_AED.xlsx" download>Pobierz wzorcowy zakres danych XLSX</a> <span class="meta">(opis pól, słowniki, przykłady)</span></li>
+          </ul>
+          <a class="btn btn--secondary" href="#formularz">Otwórz formularz</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================== KROK 1: ŹRÓDŁA ===================== -->
+    <section data-route="zrodla" data-step-index="1" aria-labelledby="h-zrodla" hidden>
+      <h1 id="h-zrodla" tabindex="-1">Krok 1 z 4: Wybierz źródła danych</h1>
+      <p class="lead">Dodaj co najmniej jedno źródło. Każde trafi do rejestru źródeł, w którym wskażesz jego licencję
+        i priorytet przy rozstrzyganiu konfliktów.</p>
+
+      <div class="cards cards--sources">
+        <article class="card source-card" aria-labelledby="h-src-plik">
+          <h2 id="h-src-plik" class="card__title">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" fill="currentColor"/></svg>
+            Plik od dysponenta
+          </h2>
+          <p>CSV, XLSX, XLS, ODS, JSON lub GeoJSON. Rozpoznajemy kodowanie, separator i wiersz nagłówka.</p>
+          <div class="dropzone" id="dropzone">
+            <input class="visually-hidden" type="file" id="plik-input" multiple
+                   accept=".csv,.tsv,.txt,.xlsx,.xls,.ods,.json,.geojson"
+                   aria-describedby="plik-pomoc">
+            <label for="plik-input" class="btn btn--primary">Wybierz pliki</label>
+            <p id="plik-pomoc" class="dropzone__hint">lub upuść je tutaj</p>
+          </div>
+        </article>
+
+        <article class="card source-card" aria-labelledby="h-src-osm" id="karta-osm">
+          <h2 id="h-src-osm" class="card__title">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>
+            OpenStreetMap
+          </h2>
+          <p>Punkty oznaczone <code>emergency=defibrillator</code>, pobierane przez serwer Overpass. Licencja ODbL.</p>
+          <form class="remote-form" id="osm-form" novalidate>
+            <fieldset class="radio-group">
+              <legend>Zakres danych</legend>
+              <div class="radio"><input type="radio" name="osm-zakres" id="osm-zakres-polska" value="polska" aria-describedby="osm-polska-uwaga"><label for="osm-zakres-polska">Cała Polska</label></div>
+              <div class="radio"><input type="radio" name="osm-zakres" id="osm-zakres-woj" value="wojewodztwo" checked><label for="osm-zakres-woj">Województwo</label></div>
+              <div class="radio"><input type="radio" name="osm-zakres" id="osm-zakres-gmina" value="gmina"><label for="osm-zakres-gmina">Gmina</label></div>
+            </fieldset>
+            <div class="field" id="osm-pole-woj">
+              <label for="osm-woj">Województwo</label>
+              <select id="osm-woj"></select>
+            </div>
+            <div class="field" id="osm-pole-gmina" hidden>
+              <label for="osm-gmina">Gmina</label>
+              <input type="text" id="osm-gmina" autocomplete="off" spellcheck="false" aria-describedby="osm-gmina-pomoc">
+              <p class="hint" id="osm-gmina-pomoc">Nazwa gminy (np. Krosno) albo 7-cyfrowy kod TERYT (np. 1861011 – Krosno).</p>
+            </div>
+            <p class="alert alert--warn alert--small" id="osm-polska-uwaga" hidden>Cała Polska to duże zapytanie:
+              może potrwać nawet kilka minut i obciąża bezpłatny serwer. Jeśli wystarczy Ci województwo, wybierz je.</p>
+            <div class="remote-actions">
+              <button type="submit" class="btn btn--primary" id="osm-pobierz">Pobierz z OpenStreetMap</button>
+              <button type="button" class="btn btn--ghost" id="osm-anuluj" hidden>Anuluj</button>
+            </div>
+            <p class="remote-status" id="osm-stan" hidden></p>
+            <p class="hint" id="osm-serwery">Gdy główny serwer OpenStreetMap jest przeciążony, aplikacja sama próbuje
+              serwerów zapasowych. Bywają wolne – pobieranie może wtedy potrwać kilka minut. W każdej chwili możesz je anulować.</p>
+          </form>
+          <div id="osm-komunikat"></div>
+        </article>
+
+        <article class="card source-card" aria-labelledby="h-src-form">
+          <h2 id="h-src-form" class="card__title">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17.2V21h3.8L17.8 10l-3.8-3.8L3 17.2zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8L20.7 7z" fill="currentColor"/></svg>
+            Formularz
+          </h2>
+          <p>Rekordy wpisane ręcznie przez dysponentów, którzy nie mają własnego pliku.</p>
+          <p class="badge badge--info">Dostępne w części 5 prototypu</p>
+        </article>
+
+        <article class="card source-card source-card--wide" aria-labelledby="h-src-dgp" id="karta-dgp">
+          <h2 id="h-src-dgp" class="card__title">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16v4H4zm0 6h16v4H4zm0 6h16v4H4z" fill="currentColor"/></svg>
+            Zbiory z dane.gov.pl
+          </h2>
+          <p>Zbiory o AED już opublikowane w portalu (m.in. Krosno, Przemyśl, Marki, Warszawa), pobierane przez API portalu.
+            Wyszukaj zbiór i dodaj wybrane zasoby (pliki) jako źródła.</p>
+          <form class="remote-form dgp-search" id="dgp-form" role="search" aria-label="Szukaj zbiorów w dane.gov.pl" novalidate>
+            <div class="field">
+              <label for="dgp-fraza">Szukana fraza</label>
+              <div class="input-row">
+                <input type="search" id="dgp-fraza" value="AED defibrylator" autocomplete="off">
+                <button type="submit" class="btn btn--primary" id="dgp-szukaj">Szukaj</button>
+                <button type="button" class="btn btn--ghost" id="dgp-anuluj" hidden>Anuluj</button>
+              </div>
+            </div>
+            <p class="remote-status" id="dgp-stan" hidden></p>
+          </form>
+          <div id="dgp-komunikat"></div>
+          <div id="dgp-wyniki"></div>
+        </article>
+      </div>
+
+      <h2 id="h-rejestr">Rejestr źródeł</h2>
+      <div id="rejestr"></div>
+      <div id="podglad"></div>
+
+      <div class="step-actions">
+        <a class="btn btn--ghost" href="#start">Wstecz</a>
+        <button type="button" class="btn btn--primary" id="dalej-mapowanie">Dalej: mapowanie kolumn</button>
+      </div>
+    </section>
+
+    <!-- ===================== KROK 2 ===================== -->
+    <section data-route="mapowanie" data-step-index="2" aria-labelledby="h-mapowanie" hidden>
+      <h1 id="h-mapowanie" tabindex="-1">Krok 2 z 4: Dopasuj kolumny do wzorca</h1>
+      <p class="placeholder">Ten krok powstanie w części 3 prototypu: automatyczne podpowiedzi, rozbijanie adresu,
+        wykrywanie zamienionych współrzędnych.</p>
+      <div class="step-actions">
+        <a class="btn btn--ghost" href="#zrodla">Wstecz</a>
+        <a class="btn btn--primary" href="#walidacja">Dalej: walidacja</a>
+      </div>
+    </section>
+
+    <!-- ===================== KROK 3 ===================== -->
+    <section data-route="walidacja" data-step-index="3" aria-labelledby="h-walidacja" hidden>
+      <h1 id="h-walidacja" tabindex="-1">Krok 3 z 4: Sprawdź błędy i duplikaty</h1>
+      <p class="placeholder">Ten krok powstanie w częściach 3 i 4 prototypu.</p>
+      <div class="step-actions">
+        <a class="btn btn--ghost" href="#mapowanie">Wstecz</a>
+        <a class="btn btn--primary" href="#wynik">Dalej: wynik</a>
+      </div>
+    </section>
+
+    <!-- ===================== KROK 4 ===================== -->
+    <section data-route="wynik" data-step-index="4" aria-labelledby="h-wynik" hidden>
+      <h1 id="h-wynik" tabindex="-1">Krok 4 z 4: Pobierz zbiór i opublikuj</h1>
+      <p class="placeholder">Ten krok powstanie w części 4 prototypu.</p>
+      <div class="step-actions">
+        <a class="btn btn--ghost" href="#walidacja">Wstecz</a>
+      </div>
+    </section>
+
+    <!-- ===================== FORMULARZ ===================== -->
+    <section data-route="formularz" aria-labelledby="h-formularz" hidden>
+      <h1 id="h-formularz" tabindex="-1">Formularz dysponenta AED</h1>
+      <p class="placeholder">Formularz powstanie w części 5 prototypu. Do tego czasu możesz
+        <a href="wzorzec/szablon_aed.csv" download>pobrać szablon CSV</a>.</p>
+    </section>
+
+    <section data-route="404" aria-labelledby="h-404" hidden>
+      <h1 id="h-404" tabindex="-1">Nie ma takiej strony</h1>
+      <p><a href="#start">Wróć na start</a></p>
+    </section>
+  </main>
+
+  <div class="visually-hidden" aria-live="polite" aria-atomic="true" id="live-polite"></div>
+  <div class="visually-hidden" aria-live="assertive" aria-atomic="true" id="live-assertive"></div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Prototyp przygotowany na HackNation 2026 (zadanie „Misja AED – Dane na ratunek”).
+        Dane OpenStreetMap © <a href="https://www.openstreetmap.org/copyright">współtwórcy OpenStreetMap</a>, licencja ODbL.
+        <a href="LICENSES.md">Licencje użytych bibliotek</a>.</p>
+    </div>
+  </footer>
+
+  <!-- Biblioteki (kopie lokalne, licencje w vendor/*/LICENSE) -->
+  <script src="vendor/papaparse/papaparse.min.js"></script>
+  <script src="vendor/sheetjs/xlsx.full.min.js"></script>
+  <!-- Aplikacja: zwykłe skrypty (działają także po otwarciu pliku z dysku) -->
+  <script src="js/core/ns.js"></script>
+  <script src="js/schema/schema.js"></script>
+  <script src="js/core/store.js"></script>
+  <script src="js/ui/dom.js"></script>
+  <script src="js/core/router.js"></script>
+  <script src="js/sources/file.js"></script>
+  <script src="js/sources/osm.js"></script>
+  <script src="js/sources/dgp.js"></script>
+  <script src="js/ui/sources.js"></script>
+  <script src="js/ui/zdalne.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+{
+  "_uwaga": "Odpowiedź w formacie Overpass API (out:json, out center tags) z danymi FIKCYJNYMI. Serwery Overpass były niedostępne z sieci, w której przygotowano test, więc nie zapisano prawdziwej odpowiedzi.",
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.5 1bd436f1",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-21T12:00:00Z",
+    "timestamp_areas_base": "2026-11-21T10:00:00Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 900000001,
+      "lat": 49.6950001,
+      "lon": 21.7650002,
+      "tags": {
+        "emergency": "defibrillator",
+        "name": "AED – Urząd Gminy (przykład)",
+        "defibrillator:location": "hol główny, przy portierni",
+        "access": "yes",
+        "opening_hours": "Mo-Fr 07:30-15:30",
+        "indoor": "yes",
+        "level": "0",
+        "operator": "Urząd Gminy Przykładowo",
+        "phone": "+48 13 000 00 00",
+        "addr:city": "Przykładowo",
+        "addr:street": "Rynek",
+        "addr:housenumber": "1",
+        "addr:postcode": "38-000"
+      }
+    },
+    {
+      "type": "node",
+      "id": 900000002,
+      "lat": 49.7012345,
+      "lon": 21.7712345,
+      "tags": {
+        "emergency": "defibrillator",
+        "access": "yes",
+        "opening_hours": "24/7",
+        "indoor": "no",
+        "defibrillator:cabinet": "yes",
+        "note": "  "
+      }
+    },
+    {
+      "type": "way",
+      "id": 900000003,
+      "center": {
+        "lat": 49.6899,
+        "lon": 21.7601
+      },
+      "tags": {
+        "emergency": "defibrillator",
+        "name": "Hala sportowa (przykład)",
+        "defibrillator:location": "wejście od ul. Sportowej",
+        "addr:place": "Przykładowo",
+        "addr:housenumber": "12"
+      }
+    },
+    {
+      "type": "relation",
+      "id": 900000004,
+      "tags": {
+        "emergency": "defibrillator"
+      }
+    },
+    {
+      "type": "area",
+      "id": 3600000005,
+      "tags": {
+        "admin_level": "7",
+        "boundary": "administrative",
+        "name": "gmina Przykładowo",
+        "teryt:terc": "1807062",
+        "type": "boundary"
+      }
+    }
+  ]
+}
