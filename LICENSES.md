@@ -9,6 +9,7 @@ dalej swobodnie używać na warunkach tych licencji).
 | PapaParse | 5.4.1 | MIT | `vendor/papaparse/LICENSE` | https://www.papaparse.com |
 | SheetJS Community Edition | 0.20.3 | Apache-2.0 | `vendor/sheetjs/LICENSE` | https://cdn.sheetjs.com (nie używamy wersji z npm 0.18.5 – znane podatności) |
 | openpyxl (tylko generator wzorca, Python) | 3.1.x | MIT | — | https://openpyxl.readthedocs.io |
+| lxml (tylko test `tests/waliduj_xml.py`, Python; nie jest częścią aplikacji) | 6.x | BSD-3-Clause | — | https://lxml.de |
 
 ## Dane
 

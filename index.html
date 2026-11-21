@@ -225,9 +225,13 @@
         <h2 id="h-wal-poprawki" tabindex="-1">Ręczne poprawki</h2>
         <p class="meta">Wartości zmienione ręcznie w tym kroku. Każdą możesz przywrócić do wartości ze źródła. Poprawki zostają po ponownym przeliczeniu.</p>
         <div id="wal-poprawki"><p class="empty">Nie poprawiono jeszcze żadnej wartości.</p></div>
-        <h2 id="h-wal-duplikaty">Duplikaty</h2>
-        <p class="placeholder">Duplikaty – część 4 prototypu. Tu pojawią się rekordy opisujące to samo urządzenie
-          w kilku źródłach, z propozycją scalenia.</p>
+        <h2 id="h-wal-duplikaty" tabindex="-1">Duplikaty</h2>
+        <p>To samo urządzenie bywa opisane w kilku źródłach (np. w pliku gminy i w OpenStreetMap). Wyszukamy rekordy
+          leżące blisko siebie i zaproponujemy, które scalić. Ty decydujesz, czy to jedno urządzenie.</p>
+        <div id="wal-duplikaty"></div>
+        <h2 id="h-wal-odstajace" tabindex="-1">Punkty odstające</h2>
+        <p>Punkty bardzo daleko od reszty zbioru lub od swojej miejscowości. Często to zamienione albo źle wpisane współrzędne.</p>
+        <div id="wal-odstajace"></div>
       </div>
       <p class="alert alert--warn" id="wal-ostrzezenie-dalej" hidden></p>
       <div class="step-actions">
@@ -239,7 +243,80 @@
     <!-- ===================== KROK 4 ===================== -->
     <section data-route="wynik" data-step-index="4" aria-labelledby="h-wynik" hidden>
       <h1 id="h-wynik" tabindex="-1">Krok 4 z 4: Pobierz zbiór i opublikuj</h1>
-      <p class="placeholder">Ten krok powstanie w części 4 prototypu.</p>
+      <p class="lead">Sprawdź podsumowanie, uzupełnij opis zbioru (metadane) i pobierz pliki. Na końcu znajdziesz
+        instrukcję publikacji w portalu <span lang="en">dane.gov.pl</span>.</p>
+      <div id="wyn-brak" class="placeholder" hidden></div>
+      <div id="wyn-tresc" hidden>
+        <h2 id="h-wyn-podsumowanie" tabindex="-1">Podsumowanie zbioru</h2>
+        <div id="wyn-podsumowanie"></div>
+        <h2 id="h-wyn-licencja">Licencja zbioru</h2>
+        <div id="wyn-licencja"></div>
+        <h2 id="h-wyn-metadane" tabindex="-1">Opis zbioru (metadane)</h2>
+        <p>Te informacje wpiszesz w portalu przy dodawaniu zbioru albo pobierzesz jako plik XML dla harvestera.
+          Pola oznaczone gwiazdką (*) są obowiązkowe.</p>
+        <div id="wyn-metadane"></div>
+        <h2 id="h-wyn-pliki" tabindex="-1">Pobierz pliki</h2>
+        <div id="wyn-pliki"></div>
+        <h2 id="h-wyn-podglad">Podgląd pliku CSV</h2>
+        <div id="wyn-podglad"></div>
+      </div>
+
+      <h2 id="h-wyn-instrukcja">Jak opublikować zbiór w dane.gov.pl</h2>
+      <div class="instrukcja">
+        <p>Zbiór publikuje instytucja, która ma konto dostawcy danych w portalu
+          <a href="https://dane.gov.pl" target="_blank" rel="noopener noreferrer"><span lang="en">dane.gov.pl</span><span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>.
+          Jeśli Twoja instytucja nie ma jeszcze konta, zapytaj osobę odpowiedzialną za otwarte dane w urzędzie
+          (często pełnomocnika ds. otwartości danych) albo skontaktuj się z administratorem portalu.</p>
+
+        <h3>Sposób 1: ręczne dodanie zbioru (dla pierwszej publikacji)</h3>
+        <ol class="kroki-publikacji">
+          <li>Pobierz plik <strong>CSV</strong> (zalecany format) i – jeśli chcesz – XLSX oraz GeoJSON.</li>
+          <li>Zaloguj się do portalu i otwórz panel dostawcy (panel administracyjny instytucji).</li>
+          <li>Dodaj nowy zbiór danych. Przepisz z formularza powyżej: tytuł, opis, kategorię, słowa kluczowe
+            i częstotliwość aktualizacji.</li>
+          <li>Wskaż warunki ponownego wykorzystania (licencję) zgodnie z sekcją „Licencja zbioru”. W opisie zbioru
+            podaj wymagane atrybucje (kogo trzeba wymienić jako źródło danych).</li>
+          <li>Dodaj zasoby: plik CSV jako główny, pozostałe formaty jako kolejne zasoby. Dołącz też rejestr źródeł
+            (CSV) – pokazuje, skąd pochodzi każdy rekord.</li>
+          <li>Sprawdź podgląd i opublikuj zbiór.</li>
+        </ol>
+
+        <h3>Sposób 2: automatyczne pobieranie (harvester XML)</h3>
+        <p>Przydaje się, gdy zbiór będzie regularnie aktualizowany, a instytucja ma własny serwer lub stronę.</p>
+        <ol class="kroki-publikacji">
+          <li>Opublikuj pliki danych na stronie instytucji pod stałymi adresami zaczynającymi się od <code>https://</code>.
+            Ten adres wpisz w formularzu metadanych powyżej (pole „Adres, pod którym opublikujesz pliki”).</li>
+          <li>Pobierz plik <strong>metadane XML</strong> i opublikuj go także pod stałym adresem.</li>
+          <li>Zgłoś administratorowi portalu adres pliku XML, aby skonfigurował harvester dla Twojej instytucji.
+            Szczegóły i aktualny schemat XML znajdziesz w
+            <a href="https://dane.gov.pl/pl/knowledgebase" target="_blank" rel="noopener noreferrer">Bazie wiedzy portalu<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>.</li>
+          <li>Przy każdej aktualizacji podmień pliki pod tymi samymi adresami i zaktualizuj plik XML (datę aktualizacji).
+            Portal sam pobierze zmiany.</li>
+        </ol>
+
+        <h3>Aktualizacja zbioru</h3>
+        <ul>
+          <li><strong>Nie zmieniaj identyfikatorów <code>id_aed</code>.</strong> To stały numer urządzenia. Dzięki niemu
+            aplikacje (np. mapy AED) rozpoznają, że rekord został zaktualizowany, a nie dodany od nowa.</li>
+          <li>Aktualizuj istniejący zbiór – dodaj nową wersję pliku do tego samego zbioru zamiast tworzyć nowy zbiór.</li>
+          <li>Urządzeń wycofanych nie usuwaj – zmień ich status na „wycofany”. Dzięki temu nie wrócą z innych źródeł.</li>
+          <li>Przy następnym scalaniu wczytaj opublikowany zbiór jako jedno ze źródeł – identyfikatory zostaną zachowane.</li>
+        </ul>
+
+        <h3>Kontakt i zgłaszanie błędów</h3>
+        <p>W opisie zbioru podaj, gdzie zgłaszać błędy (np. adres e-mail wydziału). Użytkownicy portalu mogą też
+          zgłaszać uwagi do zbioru bezpośrednio w portalu.</p>
+
+        <h3>Przydatne dokumenty</h3>
+        <ul class="link-list">
+          <li><a href="https://www.gov.pl/web/cyfryzacja/standardy-otwartosci-danych" target="_blank" rel="noopener noreferrer">Standardy otwartości danych (gov.pl)<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>
+            – opis Standardu technicznego, prawnego, API i bezpieczeństwa.</li>
+          <li><a href="https://dane.gov.pl/media/ckeditor/2020/06/16/standard-techniczny.pdf" target="_blank" rel="noopener noreferrer">Standard techniczny (PDF, wersja z 2020 r.)<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>
+            – sprawdź w Bazie wiedzy portalu, czy nie ma nowszej wersji.</li>
+          <li><a href="https://dane.gov.pl/pl/knowledgebase" target="_blank" rel="noopener noreferrer">Baza wiedzy dane.gov.pl<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>
+            – instrukcje dla dostawców danych, szkolenia, pytania i odpowiedzi.</li>
+        </ul>
+      </div>
       <div class="step-actions">
         <a class="btn btn--ghost" href="#walidacja">Wstecz</a>
       </div>
@@ -288,6 +365,10 @@
   <script src="js/ui/zdalne.js"></script>
   <script src="js/ui/mapowanie.js"></script>
   <script src="js/ui/walidacja.js"></script>
+  <script src="js/core/duplikaty.js"></script>
+  <script src="js/core/eksport.js"></script>
+  <script src="js/ui/duplikaty.js"></script>
+  <script src="js/ui/wynik.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

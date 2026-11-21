@@ -328,6 +328,76 @@ th .meta { font-weight: 400; }
 .wal-naprawy[open] summary { margin-bottom: .5rem; }
 #h-wal-lista:focus, #h-map-panel:focus, #h-wal-zbiorcze:focus { outline: 3px solid var(--c-focus); outline-offset: 2px; }
 
+/* ---- Krok 3: duplikaty i punkty odstające ---- */
+.dup-narzedzia { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem 1rem; margin-bottom: 1rem; }
+.dup-narzedzia .field { margin: 0; flex: 1 1 18rem; min-width: 0; }
+.dup-narzedzia select { width: 100%; max-width: 12rem; }
+.dup-narzedzia .remote-status { flex-basis: 100%; }
+.dup-zbiorcze { margin-bottom: 1rem; }
+.grupy { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+.grupa { min-width: 0; border: 1px solid var(--c-border-soft); border-left: 5px solid var(--c-border); border-radius: var(--radius); padding: .75rem 1rem; }
+.grupa--wysoka { border-left-color: var(--c-ok-fg); }
+.grupa--srednia { border-left-color: var(--c-warn-fg); }
+.grupa.is-zdecydowana { background: var(--c-surface); }
+.grupa__tytul { font-size: 1.05rem; margin: 0 0 .35rem; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.grupa__tytul:focus, .odst__tytul:focus, #h-dup-lista:focus, #h-dup-wynik:focus, #h-wal-duplikaty:focus, #h-wal-odstajace:focus,
+#wyn-m-bledy:focus, #wyn-m-ok:focus, #h-wyn-metadane:focus, #h-wyn-pliki:focus { outline: 3px solid var(--c-focus); outline-offset: 2px; }
+.grupa__stan { margin: 0 0 .5rem; }
+.grupa__powody ul { margin: 0 0 .75rem; padding-left: 1.25rem; }
+.grupa__powody p { margin: 0; }
+.grupa__akcje { margin-top: .5rem; }
+.dup-tabela { font-size: .92rem; }
+.dup-tabela tbody th[scope="row"] { white-space: normal; min-width: 8rem; }
+.dup-tabela td { overflow-wrap: anywhere; min-width: 9rem; }
+.dup-kol { white-space: normal !important; min-width: 9rem; }
+.dup-kol__zrodlo { display: block; }
+.dup-glowny { margin-top: .25rem; font-weight: 400; }
+/* różnica oznaczona tekstem „≠ różne wartości” i paskiem – nie samym kolorem (WCAG 1.4.1) */
+tr.is-rozne th[scope="row"] { box-shadow: inset 4px 0 0 var(--c-warn-fg); }
+tr.is-rozne td, tr.is-rozne th { background: var(--c-warn-bg); }
+.dup-roznica { display: block; font-size: .82rem; font-weight: 600; color: var(--c-warn-fg); }
+.dup-wartosc.is-puste { color: var(--c-muted); font-style: italic; }
+.dup-wybor { align-items: flex-start; min-height: 24px; }
+.dup-wybor input { margin-top: .15rem; }
+.odst__pola { display: flex; flex-wrap: wrap; gap: 0 1rem; }
+.odst__pola .field { flex: 1 1 10rem; min-width: 0; margin-bottom: .5rem; }
+.odst__form { margin-top: .75rem; }
+.odst-sprawdzone { padding-left: 1.25rem; }
+.odst-sprawdzone li { margin-bottom: .35rem; overflow-wrap: anywhere; }
+
+/* ---- Krok 4: wynik i publikacja ---- */
+.wyn-opcje { margin: 1rem 0; }
+.wyn-opcje .radio { min-height: 44px; }
+.wyn-opcje .hint { margin: 0 0 .5rem 1.75rem; }
+.wyn-atrybucje { margin: 0; padding-left: 1.25rem; }
+.wyn-metadane { max-width: 48rem; }
+.wyn-metadane input[type="text"], .wyn-metadane input[type="url"], .wyn-metadane select, .wyn-metadane textarea { width: 100%; }
+input[type="url"], textarea {
+  font: inherit; color: var(--c-text); background: #fff;
+  border: 2px solid var(--c-border); border-radius: 6px; padding: .4rem .55rem; min-height: 40px; max-width: 100%;
+}
+textarea { resize: vertical; }
+input[type="url"][aria-invalid="true"], textarea[aria-invalid="true"], fieldset[aria-invalid="true"] { border-color: var(--c-err-fg); }
+fieldset[aria-invalid="true"] { border: 2px solid var(--c-err-fg); border-radius: 6px; padding: .5rem; }
+.wymagane { color: var(--c-err-fg); }
+.wyn-kategorie__lista { display: grid; gap: 0 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+.radio input[type="checkbox"] { accent-color: var(--c-primary); }
+.alert h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+.alert ul { margin: 0; padding-left: 1.25rem; }
+.alert a { color: inherit; font-weight: 600; }
+.pliki { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .5rem; }
+.plik { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem;
+  border: 1px solid var(--c-border-soft); border-radius: var(--radius); padding: .75rem 1rem; }
+.plik--zalecany { border: 2px solid var(--c-primary); }
+.plik__opis { flex: 1 1 18rem; min-width: 0; }
+.plik__nazwa { margin: 0; font-size: 1rem; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.plik__opis .meta { margin: .15rem 0 0; }
+.plik__akcje { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; }
+.plik__akcje p { margin: 0; }
+.instrukcja { max-width: 60rem; }
+.kroki-publikacji { padding-left: 1.5rem; }
+.kroki-publikacji li { margin-bottom: .5rem; }
+
 /* ---- Akcje kroku (przyklejone na telefonie) ---- */
 .step-actions { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--c-border-soft); }
 
@@ -355,6 +425,15 @@ th .meta { font-weight: 400; }
   .map-tabela td, .map-tabela th { border: 0; padding: .25rem .75rem; max-width: none; }
   .map-tabela select, .map-tabela input[type="text"] { min-width: 0; }
   .map-zrodlo { width: 100%; }
+  /* tabela porównawcza duplikatów jako karty: rekordy jeden pod drugim, przy wartości podpis źródła */
+  .dup-tabela, .dup-tabela thead, .dup-tabela tbody, .dup-tabela tr, .dup-tabela th, .dup-tabela td { display: block; width: 100%; }
+  .dup-tabela caption { display: block; }
+  .dup-tabela thead th:first-child { display: none; }
+  .dup-tabela tr { border-bottom: 1px solid var(--c-border); padding: .35rem 0; }
+  .dup-tabela td, .dup-tabela th, .dup-kol { border: 0; padding: .2rem .75rem; min-width: 0 !important; }
+  .dup-tabela td[data-kol]::before { content: attr(data-kol); display: block; font-size: .8rem; font-weight: 600; color: var(--c-muted); }
+  tr.is-rozne th[scope="row"] { box-shadow: none; }
+  tr.is-rozne { box-shadow: inset 4px 0 0 var(--c-warn-fg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -747,6 +747,7 @@
     renderujListe();
     renderujNaprawy();
     renderujPoprawki();
+    if (AED.ui.duplikaty) AED.ui.duplikaty.renderuj();
     renderujDalej();
   }
 

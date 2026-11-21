@@ -109,6 +109,20 @@
     return isNaN(d) ? String(iso) : (zGodzina ? fmtDataCzas : fmtData).format(d);
   }
 
-  AED.dom = { h: h, ikona: ikona, odznaka: odznaka, oglos: oglos, liczba: liczba, rozmiar: rozmiar,
+  /** Pobranie pliku wygenerowanego w przeglądarce (Blob + a[download]). dane: tekst, ArrayBuffer, Uint8Array albo Blob. */
+  function pobierz(nazwa, dane, typ) {
+    const blob = dane instanceof Blob ? dane : new Blob([dane], { type: typ || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nazwa; a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // zwolnienie pamięci po rozpoczęciu pobierania
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    return blob.size;
+  }
+
+  AED.dom = { h: h, pobierz: pobierz, ikona: ikona, odznaka: odznaka, oglos: oglos, liczba: liczba, rozmiar: rozmiar,
     odmiana: odmiana, tabelaPrzewijana: tabelaPrzewijana, bezpiecznyUrl: bezpiecznyUrl, linkZewn: linkZewn, data: data };
 })(window.AED);

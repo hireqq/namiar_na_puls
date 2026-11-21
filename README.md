@@ -20,12 +20,17 @@ z wielu źródeł w jeden zbiór zgodny z wzorcowym zakresem danych dla portalu 
 ```
 index.html            ekrany aplikacji (sekcje przełączane #hashem)
 css/style.css         style (tokeny kolorów w :root, WCAG 2.2 AA)
-js/core/              przestrzeń nazw, stan (rejestr źródeł), router
+js/core/              przestrzeń nazw, stan (źródła, rekordy, duplikaty, wynik), router,
+                      normalizacja, mapowanie, walidacja, duplikaty.js (wykrywanie i scalanie),
+                      eksport.js (CSV, XLSX, JSON, GeoJSON, rejestr źródeł, datapackage, metadane XML)
 js/schema/schema.js   schemat wzorca – GENEROWANY przez wzorzec/generuj_wzorzec.py
 js/sources/file.js    wczytywanie CSV/XLSX/XLS/ODS/JSON/GeoJSON
-js/ui/                ekrany i pomocnicze funkcje DOM
+js/ui/                ekrany i pomocnicze funkcje DOM (m.in. duplikaty.js – krok 3, wynik.js – krok 4)
 wzorzec/              wzorcowy zakres danych (xlsx, csv, schema.json) + generator
 tests/fixtures/       pliki testowe (prawdziwe zbiory z dane.gov.pl + dane fikcyjne)
+tests/mock-*.js       atrapy modułów do testów interfejsu (nie dołączać do index.html)
+tests/waliduj_xml.py  sprawdzenie pliku metadanych XML ze schematem harvestera (wymaga lxml)
+otwarte_dane_latest.xsd  schemat XML harvestera dane.gov.pl
 vendor/               biblioteki (kopie lokalne z licencjami) – patrz LICENSES.md
 ```
 
@@ -43,5 +48,6 @@ Generuje: `wzorzec/wzorcowy_zakres_danych_AED.xlsx`, `szablon_aed.csv`, `przykla
 - [x] Część 1: szkielet, router, źródło „Plik”, rejestr źródeł
 - [x] Część 2: OpenStreetMap (Overpass) i dane.gov.pl (API) – testy: `node tests/zdalne.test.js`
 - [x] Część 3: mapowanie kolumn, normalizacja, walidacja – testy: `node tests/czesc3.test.js`
-- [ ] Część 4: deduplikacja, eksport, instrukcja publikacji
+- [x] Część 4: duplikaty i punkty odstające, wynik, eksport (CSV, XLSX, JSON, GeoJSON, rejestr źródeł,
+  datapackage.json, metadane XML), instrukcja publikacji w dane.gov.pl – testy: `node tests/czesc4.test.js`
 - [ ] Część 5: formularz dysponenta, mapa, testy, wdrożenie

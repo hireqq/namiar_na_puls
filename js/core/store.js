@@ -2,14 +2,19 @@
    Źródło = { id, kod, nazwa, typ, dysponent, licencja, priorytet, kolumny[], wiersze[], meta{}, dataPobrania, mapowanie? }
    Rekord = wynik AED.mapowanie.zastosuj: pola wzorca + _id, _zrodlo, _kodZrodla, _wiersz, _surowy, _naprawy,
             _poprawione (lista pól poprawionych ręcznie), _oryginal ({pole: wartość przed ręczną poprawką}).
-   Zmiany ogłaszane zdarzeniami 'zrodla:zmiana' i 'rekordy:zmiana'. */
+   Zmiany ogłaszane zdarzeniami 'zrodla:zmiana', 'rekordy:zmiana', a w części 4 także 'duplikaty:zmiana' i 'wynik:zmiana'. */
 (function (AED) {
   'use strict';
 
   const state = {
     zrodla: [], licznik: { PLIK: 0, OSM: 0, DGP: 0, FORMULARZ: 0 },
     rekordy: [], indeks: new Map(),   // _id -> rekord
-    poprawki: new Map()               // _id -> { odcisk, pola: { pole: wartość wpisana ręcznie } } – przetrwa przelicz()
+    poprawki: new Map(),              // _id -> { odcisk, pola: { pole: wartość wpisana ręcznie } } – przetrwa przelicz()
+    // część 4: duplikaty i wynik scalenia
+    duplikaty: null, opcjeDuplikatow: null,
+    decyzje: new Map(),               // id grupy -> { status, glowny?, wartosci? } – przetrwa przelicz() (id grupy jest stałe)
+    wynik: null, wynikNieaktualny: true,
+    odstajaceOk: new Map()            // rekordId -> {lat, lon} punktu uznanego za poprawny (zmiana współrzędnych unieważnia)
   };
 
   // Domyślny priorytet z rejestru źródeł we wzorcu (1 = najwyższy)
@@ -83,6 +88,7 @@
       // ręczne poprawki i nadane ID tego źródła przestają obowiązywać
       const pref = id + ':';
       Array.from(state.poprawki.keys()).forEach(function (k) { if (k.indexOf(pref) === 0) state.poprawki.delete(k); });
+      Array.from(state.odstajaceOk.keys()).forEach(function (k) { if (k.indexOf(pref) === 0) state.odstajaceOk.delete(k); });
       if (AED.mapowanie && AED.mapowanie.zapomnij) AED.mapowanie.zapomnij(id);
       if (state.rekordy.some(function (r) { return r._zrodlo === id; })) {
         this.ustawRekordy(state.rekordy.filter(function (r) { return r._zrodlo !== id; }));
@@ -118,6 +124,9 @@
       state.indeks = new Map();
       state.rekordy.forEach(function (r) { state.indeks.set(r._id, r); });
       AED.emit('rekordy:zmiana', { akcja: 'ustawiono', liczba: state.rekordy.length });
+      // wyniki wyszukiwania duplikatów dotyczą starych rekordów – liczymy je od nowa (decyzje zostają)
+      if (state.duplikaty && AED.duplikaty) this.znajdzDuplikaty(state.opcjeDuplikatow);
+      else oznaczWynik();
       return state.rekordy.length;
     },
 
@@ -138,6 +147,7 @@
       state.poprawki.set(rekordId, zapis);
       r._poprawione = Object.keys(p);
       AED.emit('rekordy:zmiana', { akcja: 'zmieniono', rekord: r, pola: Object.keys(zmiany || {}) });
+      oznaczWynik();
       return r;
     },
 
@@ -155,6 +165,7 @@
       });
       if (!Object.keys(p).length) { state.poprawki.delete(rekordId); delete r._poprawione; delete r._oryginal; } else r._poprawione = Object.keys(p);
       AED.emit('rekordy:zmiana', { akcja: 'zmieniono', rekord: r, pola: pola });
+      oznaczWynik();
       return r;
     },
 
@@ -171,6 +182,147 @@
       });
       this.ustawRekordy(wszystkie);
       return { rekordy: wszystkie.length, zrodla: podsumowania };
+    },
+
+    // ------------------------------------------------ duplikaty i wynik (część 4)
+
+    /** Ostatni wynik AED.duplikaty.znajdz ({ grupy, odstajace, podsumowanie }) albo null. */
+    get duplikaty() { return state.duplikaty; },
+
+    /** Decyzje użytkownika: { [grupaId]: { status: 'scal'|'rozdziel', glowny?, wartosci? } } (kopia). */
+    get decyzje() {
+      const o = {};
+      state.decyzje.forEach(function (d, k) { o[k] = d; });
+      return o;
+    },
+
+    /** Szukanie duplikatów w bieżących rekordach (synchronicznie).
+        opcje jak AED.duplikaty.znajdz: promienM, promienMaksM, postep(ulamek). Zapamiętujemy je (bez postep) do ponownych wyszukiwań. */
+    znajdzDuplikaty(opcje) {
+      const o = zapamietajOpcje(opcje);
+      return zapiszDuplikaty(AED.duplikaty.znajdz(state.rekordy, o));
+    },
+
+    /** To samo, ale z oddawaniem sterowania przeglądarce (pasek postępu). @returns {Promise<wynik znajdz>} */
+    znajdzDuplikatyAsync(opcje) {
+      const o = zapamietajOpcje(opcje);
+      const rekordy = state.rekordy;
+      return AED.duplikaty.znajdzAsync(rekordy, o).then(function (w) {
+        // w międzyczasie rekordy się zmieniły – ustawRekordy już policzył nowy wynik synchronicznie
+        if (rekordy !== state.rekordy) return state.duplikaty;
+        return zapiszDuplikaty(w);
+      });
+    },
+
+    /** Punkty odstające uznane za poprawne: [{ rekordId, lat, lon }]. */
+    get odstajaceOk() {
+      const t = [];
+      state.odstajaceOk.forEach(function (v, k) { t.push({ rekordId: k, lat: v.lat, lon: v.lon }); });
+      return t;
+    },
+
+    /** Oznaczenie punktu odstającego jako poprawnego (ok=true) albo cofnięcie (false). Przetrwa ponowne wyszukiwanie
+        i przelicz(); traci ważność, gdy zmienią się współrzędne rekordu. Ustawia pole `zaakceptowany` w store.duplikaty.odstajace. */
+    ustawOdstajacyOk(rekordId, ok) {
+      const r = state.indeks.get(rekordId);
+      if (ok && r) state.odstajaceOk.set(rekordId, { lat: r.szerokosc_geograficzna, lon: r.dlugosc_geograficzna });
+      else state.odstajaceOk.delete(rekordId);
+      if (state.duplikaty) oznaczOdstajace(state.duplikaty);
+      AED.emit('duplikaty:zmiana', { akcja: 'odstajacy', rekordId: rekordId, ok: !!(ok && r) });
+      return !!(ok && r);
+    },
+
+    /** Wiele decyzji naraz (np. „zatwierdź wszystkie wysokie”): { [grupaId]: decyzja|null }; jedno zdarzenie. */
+    ustawDecyzjeWiele(mapa) {
+      Object.keys(mapa || {}).forEach(function (id) {
+        const d = mapa[id];
+        if (d && d.status !== 'scal' && d.status !== 'rozdziel') throw new Error('Decyzja musi mieć status „scal” albo „rozdziel”.');
+      });
+      Object.keys(mapa || {}).forEach(function (id) { zapiszDecyzje(id, mapa[id]); });
+      AED.emit('duplikaty:zmiana', { akcja: 'decyzje', grupy: Object.keys(mapa || {}) });
+      oznaczWynik();
+    },
+
+    /** Scalenie tylko wybranych rekordów wejściowych (np. bez ODbL) – nie zmienia stanu; decyzje jak w wyniku.
+        Rekord scalony powstaje wtedy wyłącznie z rekordów, które przeszły filtr. @returns {{rekordy, raport}} */
+    wynikDla(filtr) {
+      const wej = state.rekordy.filter(filtr);
+      if (!state.duplikaty || !AED.duplikaty) return { rekordy: wej, raport: null };
+      return AED.duplikaty.scal(wej, state.duplikaty.grupy, this.decyzje, { zrodla: state.zrodla });
+    },
+
+    /** Decyzja dla grupy (null = wróć do propozycji automatycznej). */
+    ustawDecyzje(grupaId, decyzja) {
+      if (!grupaId) return null;
+      if (decyzja === null || decyzja === undefined) state.decyzje.delete(grupaId);
+      else {
+        if (decyzja.status !== 'scal' && decyzja.status !== 'rozdziel') throw new Error('Decyzja musi mieć status „scal” albo „rozdziel”.');
+        zapiszDecyzje(grupaId, decyzja);
+      }
+      AED.emit('duplikaty:zmiana', { akcja: 'decyzja', grupaId: grupaId, decyzja: state.decyzje.get(grupaId) || null });
+      oznaczWynik();
+      return state.decyzje.get(grupaId) || null;
+    },
+
+    /** Rekordy wynikowe (po scaleniu wg decyzji; bez wyszukania duplikatów – rekordy bez zmian). Liczone przy pierwszym odczycie. */
+    get wynik() {
+      if (state.wynikNieaktualny || !state.wynik) this.przeliczWynik(true);
+      return state.wynik.rekordy.slice();
+    },
+
+    /** Raport ostatniego scalenia: { grupy, scalone, rozdzielone, usuniete, … } albo null. */
+    get raportScalenia() {
+      if (state.wynikNieaktualny || !state.wynik) this.przeliczWynik(true);
+      return state.wynik.raport;
+    },
+
+    /** Scalenie od nowa (AED.duplikaty.scal). Zwraca { rekordy, raport }. */
+    przeliczWynik(cicho) {
+      if (state.duplikaty && AED.duplikaty) {
+        state.wynik = AED.duplikaty.scal(state.rekordy, state.duplikaty.grupy, this.decyzje, { zrodla: state.zrodla });
+      } else {
+        state.wynik = { rekordy: state.rekordy.slice(), raport: null };
+      }
+      state.wynikNieaktualny = false;
+      if (!cicho) AED.emit('wynik:zmiana', { akcja: 'przeliczono', liczba: state.wynik.rekordy.length, raport: state.wynik.raport });
+      return { rekordy: state.wynik.rekordy.slice(), raport: state.wynik.raport };
     }
   };
+
+  function zapiszDecyzje(grupaId, decyzja) {
+    if (!decyzja) { state.decyzje.delete(grupaId); return; }
+    const d = { status: decyzja.status };
+    if (decyzja.glowny) d.glowny = decyzja.glowny;
+    if (decyzja.wartosci && Object.keys(decyzja.wartosci).length) d.wartosci = Object.assign({}, decyzja.wartosci);
+    state.decyzje.set(grupaId, d);
+  }
+  function zapamietajOpcje(opcje) {
+    const o = Object.assign({}, opcje || {});
+    state.opcjeDuplikatow = Object.assign({}, o);
+    delete state.opcjeDuplikatow.zrodla; delete state.opcjeDuplikatow.postep;
+    o.zrodla = state.zrodla;
+    return o;
+  }
+  /** Pole `zaakceptowany` w odstających wg listy punktów uznanych za poprawne (te same współrzędne). */
+  function oznaczOdstajace(wynik) {
+    (wynik.odstajace || []).forEach(function (o) {
+      const ok = state.odstajaceOk.get(o.rekordId);
+      const r = state.indeks.get(o.rekordId);
+      o.zaakceptowany = !!(ok && r && ok.lat === r.szerokosc_geograficzna && ok.lon === r.dlugosc_geograficzna);
+    });
+    wynik.podsumowanie.odstajaceDoSprawdzenia = (wynik.odstajace || []).filter(function (o) { return !o.zaakceptowany; }).length;
+  }
+  function zapiszDuplikaty(w) {
+    state.duplikaty = w;
+    oznaczOdstajace(w);
+    AED.emit('duplikaty:zmiana', { akcja: 'znaleziono', podsumowanie: w.podsumowanie });
+    oznaczWynik();
+    return w;
+  }
+
+  /** Wynik scalenia jest nieaktualny – przeliczy się przy odczycie store.wynik. */
+  function oznaczWynik() {
+    state.wynikNieaktualny = true;
+    AED.emit('wynik:zmiana', { akcja: 'nieaktualny' });
+  }
 })(window.AED);

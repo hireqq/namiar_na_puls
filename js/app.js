@@ -33,6 +33,8 @@
     if (AED.ui.zdalne) AED.ui.zdalne.init();
     if (AED.ui.mapowanie) AED.ui.mapowanie.init();
     if (AED.ui.walidacja) AED.ui.walidacja.init();
+    if (AED.ui.duplikaty) AED.ui.duplikaty.init();
+    if (AED.ui.wynik) AED.ui.wynik.init();
     AED.router.start();
   });
 })(window.AED);
