@@ -1,5 +1,5 @@
 /* Mapowanie kolumn źródła na pola wzorca i budowa rekordów.
-   podpowiedz(zrodlo) – automatyczne dopasowanie nagłówków (nazwy pól, tytuły, synonimy, tagi OSM)
+   podpowiedz(zrodlo) – automatyczne dopasowanie nagłówków (nazwy pól, tytuły, synonimy)
                          sprawdzone zawartością kolumny (próbka wierszy);
    zastosuj(zrodlo, mapowanie) – rekordy w formacie wzorca (typy JS) z listą automatycznych napraw.
    Reguły mapowania:
@@ -38,19 +38,19 @@
     lokalizacja_przyblizona: ['przyblizona', 'lokalizacja przyblizona', 'przyblizone'],
     zrodlo_wspolrzednych: ['zrodlo wspolrzednych', 'zrodlo lokalizacji', 'metoda lokalizacji'],
     kod_terc_gminy: ['terc', 'teryt', 'kod teryt', 'kod terc', 'teryt terc', 'kod gminy', 'teryt gminy'],
-    wojewodztwo: ['wojewodztwo', 'woj', 'region', 'voivodeship', 'addr state', 'is in state'],
-    miejscowosc: ['miejscowosc', 'miasto', 'city', 'addr city', 'addr place', 'town', 'miejscowosc poczta', 'nazwa miejscowosci', ['gmina', 1], ['poczta', 1]],
+    wojewodztwo: ['wojewodztwo', 'woj', 'region', 'voivodeship'],
+    miejscowosc: ['miejscowosc', 'miasto', 'city', 'town', 'miejscowosc poczta', 'nazwa miejscowosci', ['gmina', 1], ['poczta', 1]],
     kod_simc: ['simc', 'kod simc', 'teryt simc', 'sym'],
     cecha_ulicy: ['cecha', 'cecha ulicy', 'typ ulicy', 'rodzaj ulicy'],
-    ulica: ['ulica', 'ul', 'street', 'addr street', 'nazwa ulicy', 'ulica nazwa'],
+    ulica: ['ulica', 'ul', 'street', 'nazwa ulicy', 'ulica nazwa'],
     kod_ulic: ['ulic', 'kod ulic', 'sym ul', 'kod ulicy'],
-    numer_budynku: ['numer budynku', 'nr budynku', 'nr domu', 'numer domu', 'home number', 'house number', 'housenumber', 'addr housenumber',
+    numer_budynku: ['numer budynku', 'nr budynku', 'nr domu', 'numer domu', 'home number', 'house number', 'housenumber',
       'nr posesji', 'numer posesji', 'nr bud', 'numer porzadkowy', ['budynek', 1]],
-    kod_pocztowy: ['kod pocztowy', 'postcode', 'post code', 'zip', 'zip code', 'addr postcode', 'kod poczt', 'pna', 'kod pocz'],
+    kod_pocztowy: ['kod pocztowy', 'postcode', 'post code', 'zip', 'zip code', 'kod poczt', 'pna', 'kod pocz'],
     opis_lokalizacji: ['opis lokalizacji', 'lokalizacja', 'opis', 'opis miejsca', 'umiejscowienie', 'miejsce zawieszenia', 'miejsce montazu',
-      'defibrillator location', 'lokalizacja urzadzenia', 'dokladna lokalizacja', 'opis dojscia', 'lokalizacja aed', 'gdzie', 'miejsce instalacji',
+      'lokalizacja urzadzenia', 'dokladna lokalizacja', 'opis dojscia', 'lokalizacja aed', 'gdzie', 'miejsce instalacji',
       'lokalizacja w budynku', ['description', 1]],
-    opis_lokalizacji_en: ['defibrillator location en', 'opis en', 'opis lokalizacji en', 'location description'],
+    opis_lokalizacji_en: ['opis en', 'opis lokalizacji en', 'location description'],
     wewnatrz_budynku: ['wewnatrz', 'wewnatrz budynku', 'indoor', 'w budynku', 'wewnetrzny', 'zewnetrzny wewnetrzny', 'wewn zewn'],
     kondygnacja: ['kondygnacja', 'pietro', 'level', 'poziom', 'nr kondygnacji'],
     dostepnosc: ['dostepnosc', 'dostep', 'access', 'dostepny', 'ogolnodostepny', 'dostepnosc publiczna', 'rodzaj dostepu', 'dla kogo'],
@@ -61,7 +61,7 @@
     typ_urzadzenia: ['typ urzadzenia', 'rodzaj urzadzenia', 'typ aed', 'rodzaj aed', ['typ', 1], ['rodzaj', 1]],
     producent: ['producent', 'manufacturer', 'marka', 'wytworca'],
     model: ['model', 'model urzadzenia', 'typ modelu'],
-    tryb_pediatryczny: ['pediatryczny', 'tryb pediatryczny', 'elektrody pediatryczne', 'dla dzieci', 'defibrillator pediatric', 'pediatric'],
+    tryb_pediatryczny: ['pediatryczny', 'tryb pediatryczny', 'elektrody pediatryczne', 'dla dzieci', 'pediatric'],
     data_waznosci_elektrod: ['elektrody', 'waznosc elektrod', 'data waznosci elektrod', 'termin waznosci elektrod', 'elektrody waznosc', 'elektrody do'],
     data_waznosci_baterii: ['bateria', 'waznosc baterii', 'data waznosci baterii', 'termin waznosci baterii', 'akumulator', 'bateria do'],
     data_przegladu: ['przeglad', 'data przegladu', 'ostatni przeglad', 'serwis', 'data serwisu', 'data ostatniego przegladu'],
@@ -82,21 +82,9 @@
   };
   // Złożone: jedna kolumna -> kilka pól
   const SYN_ADRES = ['adres', 'address', 'adres aed', 'adres obiektu', 'adres pocztowy', 'adres lokalizacji', 'pelny adres', 'adres miejsca',
-    'ulica i numer', 'ulica nr', 'adres instalacji', 'lokalizacja adres', 'adres urzadzenia', 'addr full'];
+    'ulica i numer', 'ulica nr', 'adres instalacji', 'lokalizacja adres', 'adres urzadzenia'];
   const SYN_WSP = ['wspolrzedne', 'wspolrzedne geograficzne', 'geometria', 'geometry', 'geom', 'the geom', 'wkt', 'polozenie', 'gps',
     'wspolrzedne gps', 'coordinates', 'coords', 'lokalizacja gps', 'punkt', 'wsp', 'lat lon', 'lat lng', 'szerokosc dlugosc', ['lokalizacja', 1], ['location', 1]];
-
-  // Tagi OSM (klucze kolumn źródła OSM) -> pole wzorca
-  const OSM_TAGI = {
-    'name': 'nazwa', 'ref': 'id_lokalne', 'ref:aed': 'id_aed', 'defibrillator:location': 'opis_lokalizacji',
-    'defibrillator:location:en': 'opis_lokalizacji_en', 'indoor': 'wewnatrz_budynku', 'level': 'kondygnacja', 'access': 'dostepnosc',
-    'opening_hours': 'godziny_dostepnosci', 'locked': 'sposob_dostepu', 'operator': 'dysponent_nazwa', 'phone': 'telefon_kontaktowy',
-    'contact:phone': 'telefon_kontaktowy', 'email': 'email_kontaktowy', 'contact:email': 'email_kontaktowy', 'manufacturer': 'producent',
-    'model': 'model', 'check_date': 'data_weryfikacji', 'addr:city': 'miejscowosc', 'addr:place': 'miejscowosc', 'addr:street': 'ulica',
-    'addr:housenumber': 'numer_budynku', 'addr:postcode': 'kod_pocztowy', 'note': 'uwagi', 'description': 'instrukcja_dostepu',
-    'defibrillator:pediatric': 'tryb_pediatryczny', 'lat': 'szerokosc_geograficzna', 'lon': 'dlugosc_geograficzna',
-    'teryt:terc': 'kod_terc_gminy', 'teryt:simc': 'kod_simc'
-  };
 
   // Indeks dopasowań: klucz nagłówka -> [{pole, wynik, pewnosc, powod}]
   const DOKLADNE = {};
@@ -109,7 +97,6 @@
     dodajDokladne(N.klucz(f.name.replace(/_/g, ' ')), f.name, 100, 'wysoka', 'nazwa');
     dodajDokladne(N.klucz(f.title), f.name, 96, 'wysoka', 'tytul');
   });
-  Object.keys(OSM_TAGI).forEach(function (t) { dodajDokladne(N.klucz(t), OSM_TAGI[t], 94, 'wysoka', 'osm:' + t); });
   function dodajSynonimy(pole, lista) {
     lista.forEach(function (s) {
       const slaby = Array.isArray(s);
@@ -233,7 +220,6 @@
         let powod;
         if (d.rodzaj === 'nazwa') powod = 'Nagłówek „' + kolumna + '” to nazwa pola we wzorcu.';
         else if (d.rodzaj === 'tytul') powod = 'Nagłówek „' + kolumna + '” to tytuł pola „' + tytul(d.pole) + '”.';
-        else if (d.rodzaj.indexOf('osm:') === 0) powod = 'Tag OpenStreetMap „' + d.rodzaj.slice(4) + '” odpowiada polu „' + tytul(d.pole) + '”.';
         else powod = 'Nagłówek „' + kolumna + '” oznacza zwykle pole „' + tytul(d.pole) + '”.';
         wynik[d.pole] = { pole: d.pole, kolumna: kolumna, wynik: d.wynik, pewnosc: d.pewnosc, powod: powod };
       }
@@ -341,15 +327,6 @@
       zajete[c.kolumna] = c.pole;
     });
 
-    // OSM: addr:place jako zapas dla miejscowości
-    if (m.miejscowosc && m.miejscowosc.kolumna === 'addr:city' && kolumny.indexOf('addr:place') >= 0 && !zajete['addr:place']) {
-      m.miejscowosc.zapas = 'addr:place';
-      m.miejscowosc.powod += ' Gdy brak addr:city – addr:place (miejscowość bez ulic).';
-    } else if (m.miejscowosc && m.miejscowosc.kolumna === 'addr:place' && kolumny.indexOf('addr:city') >= 0 && !zajete['addr:city']) {
-      m.miejscowosc = { regula: 'kolumna', kolumna: 'addr:city', zapas: 'addr:place', pewnosc: 'wysoka',
-        powod: 'Tag OpenStreetMap „addr:city” (a gdy go brak – „addr:place”) odpowiada polu „Miejscowość”.' };
-    }
-
     nazwaZInnejKolumny(m, profile, kolumny, zajete);
     numerAedZNazwy(m, profile, zajete);
 
@@ -444,7 +421,6 @@
 
   /** Wartości domyślne dla pól bez kolumny (zależne od rodzaju źródła). */
   function domyslne(zrodlo, m, kolumny) {
-    const osm = zrodlo.typ === 'OSM';
     const meta = zrodlo.meta || {};
     const brak = function (p) { return !m[p]; };
     if (brak('zrodlo_danych')) m.zrodlo_danych = stala(zrodlo.kod || null, 'wysoka', 'Kod źródła w rejestrze źródeł (' + (zrodlo.kod || '?') + ').', { zZrodla: 'kod' });
@@ -453,39 +429,29 @@
         ? stala(zrodlo.licencja, 'wysoka', 'Licencja wskazana dla źródła w rejestrze źródeł.', { zZrodla: 'licencja' })
         : stala(null, 'niska', 'Źródło nie ma jeszcze licencji – wskaż ją w rejestrze źródeł, trafi do każdego rekordu.', { zZrodla: 'licencja' });
     }
-    if (brak('dysponent_nazwa') && !osm) {
+    if (brak('dysponent_nazwa')) {
       m.dysponent_nazwa = zrodlo.dysponent
         ? stala(zrodlo.dysponent, 'srednia', 'Brak kolumny z dysponentem – przyjęto dysponenta źródła („' + zrodlo.dysponent + '”).', { zZrodla: 'dysponent' })
         : stala(null, 'niska', 'Brak kolumny z dysponentem – wpisz nazwę dysponenta (urzędu, szkoły…) jako wartość stałą.', { zZrodla: 'dysponent' });
     }
     if (brak('status')) {
-      m.status = osm
-        ? stala('do_weryfikacji', 'wysoka', 'Punkty z OpenStreetMap nie są potwierdzone przez dysponenta – status „do weryfikacji”.')
-        : stala('aktywny', 'srednia', 'Źródło nie podaje statusu – przyjęto, że urządzenia ze zbioru dysponenta są aktywne.');
+      m.status = stala('aktywny', 'srednia', 'Źródło nie podaje statusu – przyjęto, że urządzenia ze zbioru dysponenta są aktywne.');
     }
     if (brak('lokalizacja_przyblizona')) {
-      m.lokalizacja_przyblizona = osm
-        ? stala(false, 'wysoka', 'Współrzędne węzła OSM wskazują miejsce urządzenia.')
-        : stala(false, 'srednia', 'Brak informacji – przyjęto, że współrzędne wskazują miejsce urządzenia, a nie tylko adres.');
+      m.lokalizacja_przyblizona = stala(false, 'srednia', 'Brak informacji – przyjęto, że współrzędne wskazują miejsce urządzenia, a nie tylko adres.');
     }
     if (brak('zrodlo_wspolrzednych')) {
-      m.zrodlo_wspolrzednych = osm
-        ? stala('osm', 'wysoka', 'Współrzędne pochodzą z OpenStreetMap.')
-        : stala('nieznane', 'srednia', 'Źródło nie podaje, jak ustalono współrzędne.');
+      m.zrodlo_wspolrzednych = stala('nieznane', 'srednia', 'Źródło nie podaje, jak ustalono współrzędne.');
     }
     if (brak('sposob_dostepu')) m.sposob_dostepu = stala('nieznany', 'srednia', 'Źródło nie opisuje zabezpieczenia urządzenia – „nieznany”.');
     if (brak('sposob_weryfikacji')) m.sposob_weryfikacji = stala('import_bez_weryfikacji', 'wysoka', 'Dane przejęte automatycznie ze źródła – „import bez weryfikacji”.');
-    if (brak('zrodlo_id_rekordu') && osm && kolumny.indexOf('osm_id') >= 0) {
-      m.zrodlo_id_rekordu = { regula: 'kolumna', kolumna: 'osm_id', szablon: '{osm_typ}/{osm_id}', pewnosc: 'wysoka',
-        powod: 'Identyfikator obiektu OSM w postaci typ/numer, np. node/123456789.' };
-    }
     if (brak('data_aktualizacji_rekordu')) {
       const d = N.dataCzas(meta.dataDanych) || N.dataCzas(zrodlo.dataPobrania);
       m.data_aktualizacji_rekordu = stala(d, meta.dataDanych ? 'wysoka' : 'srednia', meta.dataDanych
-        ? 'Data danych w źródle (' + (osm ? 'stan bazy OpenStreetMap' : 'ostatnia modyfikacja zbioru') + ').'
+        ? 'Data danych w źródle (ostatnia modyfikacja zbioru).'
         : 'Brak daty w źródle – przyjęto datę pobrania danych.');
     }
-    if (brak('data_weryfikacji') && !osm && meta.dataDanych && N.data(meta.dataDanych)) {
+    if (brak('data_weryfikacji') && meta.dataDanych && N.data(meta.dataDanych)) {
       m.data_weryfikacji = stala(N.data(meta.dataDanych), 'niska',
         'Brak daty weryfikacji w źródle – przyjęto datę ostatniej aktualizacji zbioru. Sprawdź i popraw, jeśli znasz datę sprawdzenia urządzeń.');
     }
@@ -641,7 +607,7 @@
     } else if (pole === 'email_kontaktowy') {
       const k = N.email(t); if (k) { v = k; opis = 'Ujednolicono zapis adresu e-mail.'; }
     } else if (pole === 'godziny_dostepnosci') {
-      const k = zPamieci('godziny', t, N.godziny); if (k) { v = k; opis = 'Zapisano godziny w formacie OpenStreetMap (opening_hours).'; }
+      const k = zPamieci('godziny', t, N.godziny); if (k) { v = k; opis = 'Zapisano godziny w formacie opening_hours.'; }
     } else if (pole === 'kod_terc_gminy' || pole === 'kod_simc') {
       const c = t.replace(/[\s-]/g, '');
       if (/^\d{6}$/.test(c)) { v = '0' + c; opis = 'Dodano zero wiodące (zgubione przez arkusz kalkulacyjny).'; } else if (/^\d{7}$/.test(c)) v = c;
@@ -677,7 +643,7 @@
     const wiersze = zrodlo.wiersze || [];
     const meta = zrodlo.meta || {};
     const idZr = zrodlo.id || zrodlo.kod;
-    const przesuniecie = zrodlo.typ === 'OSM' ? 1 : (Number(meta.wierszNaglowka) || 1) + 1;
+    const przesuniecie = zrodlo.typ === 'FORMULARZ' ? 1 : (Number(meta.wierszNaglowka) || 1) + 1;
     const regLat = mapowanie.szerokosc_geograficzna, regLon = mapowanie.dlugosc_geograficzna;
     const puste = {};
     POLA.forEach(function (f) { puste[f.name] = 0; });

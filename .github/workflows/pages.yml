@@ -1,0 +1,51 @@
+# Wdrożenie statyczne na GitHub Pages (bez builda): kopia katalogu głównego bez testów, generatora i plików CI.
+# Wymaga jednorazowo: Settings -> Pages -> Build and deployment -> Source: „GitHub Actions”.
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  testy:
+    # ten sam zestaw co w testy.yml (reusable workflow) – bez dublowania kroków
+    uses: ./.github/workflows/testy.yml
+
+  publikacja:
+    needs: testy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.wdrozenie.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pliki strony (bez tests/, generatora wzorca i .github/)
+        run: |
+          mkdir -p _site
+          rsync -a ./ _site/ \
+            --exclude '.git' --exclude '.github' --exclude '_site' \
+            --exclude 'tests' --exclude 'wzorzec/generuj_wzorzec.py' \
+            --exclude '__pycache__' --exclude '*.pyc'
+          touch _site/.nojekyll
+          test -f _site/index.html
+          ls -R _site | head -n 60
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: wdrozenie
+        uses: actions/deploy-pages@v4

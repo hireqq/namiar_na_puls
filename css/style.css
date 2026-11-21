@@ -182,12 +182,12 @@ tbody th[scope="row"] { white-space: nowrap; }
 /* ---- Formularze ---- */
 .field { display: flex; flex-direction: column; gap: .25rem; margin-bottom: 1rem; }
 label { font-weight: 600; }
-input[type="text"], input[type="number"], input[type="search"], select, textarea {
+input[type="text"], input[type="number"], input[type="search"], input[type="tel"], input[type="email"], input[type="date"], input[type="url"], select, textarea {
   font: inherit; color: var(--c-text); background: #fff;
   border: 2px solid var(--c-border); border-radius: 6px; padding: .4rem .55rem; min-height: 40px;
   max-width: 100%;
 }
-input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--c-err-fg); }
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--c-err-fg); }
 .input--table { min-width: 12rem; }
 
 /* ---- Panel podglądu i komunikaty ---- */
@@ -202,7 +202,7 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--c-
 .alert--ok   { background: var(--c-ok-bg);   color: var(--c-ok-fg);   border-color: var(--c-ok-fg); }
 .empty { color: var(--c-muted); font-style: italic; }
 
-/* ---- Źródła zdalne: OpenStreetMap i dane.gov.pl ---- */
+/* ---- Źródło zdalne: dane.gov.pl ---- */
 .source-card--wide { grid-column: 1 / -1; }
 .remote-form { display: flex; flex-direction: column; gap: .75rem; margin: 0; }
 .remote-form .field { margin-bottom: 0; }
@@ -229,7 +229,6 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--c-
 .btn.is-done { background: var(--c-ok-bg); color: var(--c-ok-fg); border-color: var(--c-ok-fg); }
 .input-row { display: flex; flex-wrap: wrap; gap: .5rem; }
 .input-row input { flex: 1 1 14rem; min-width: 0; }
-#karta-osm select, #karta-osm input[type="text"] { width: 100%; }
 
 .results-title { margin: 1rem 0 .5rem; font-size: 1.05rem; }
 .dgp-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
@@ -446,3 +445,59 @@ fieldset[aria-invalid="true"] { border: 2px solid var(--c-err-fg); border-radius
   .btn, .badge, .stepper__num { border: 1px solid CanvasText; }
 }
 .odst__dodatkowe { margin: 0 0 .5rem; padding-left: 1.25rem; }
+
+/* ---- Mapa (Leaflet + podkłady GUGiK) ---- */
+.alert--info { background: var(--c-info-bg); color: var(--c-info-fg); border-color: var(--c-info-fg); }
+.mapa { display: flex; flex-direction: column; gap: .5rem; margin: .75rem 0; min-width: 0; }
+.mapa__opcje { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; }
+.mapa__okno { height: 420px; width: 100%; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); z-index: 0; }
+.mapa__okno--mala { height: 280px; }
+.mapa__okno:focus-visible, .leaflet-container:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
+.leaflet-container a.leaflet-control-zoom-in, .leaflet-container a.leaflet-control-zoom-out { color: var(--c-text); }
+.leaflet-control-attribution a { color: var(--c-primary); }
+.leaflet-container .leaflet-control-attribution { font-size: .75rem; color: var(--c-text); background: rgba(255,255,255,.9); }
+.leaflet-marker-icon:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
+.mapa-grupa { display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--c-primary); color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--c-primary); font-weight: 700; font-size: .8rem; }
+.mapa-numer { display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--c-accent); color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px #000; font-weight: 700; }
+.mapa-aed { display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--c-accent); color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px #000; font-weight: 700; font-size: .75rem; }
+.mapa__okno--celownik::after { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border: 2px solid #000; border-radius: 50%; box-shadow: 0 0 0 2px #fff; pointer-events: none; z-index: 500; }
+.mapa-okienko p { margin: 0 0 .25rem; }
+.mapa-legenda__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; }
+.mapa-legenda__znak { display: inline-block; width: 1rem; height: 1rem; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #000; vertical-align: -.15em; margin-right: .35rem; }
+.mapa-wstawka { margin: .5rem 0; }
+.mapa-punkty { margin: 0; padding-left: 1.5rem; font-size: .92rem; overflow-wrap: anywhere; }
+.mapa__kolor select { max-width: 100%; }
+
+/* ---- Formularz dysponenta ---- */
+.fd-szkic { flex-direction: column; gap: .25rem; }
+.fd-szkic p { margin: 0; }
+.fd-szkic .btn { align-self: flex-start; }
+.fd-sekcja { margin-top: 2rem; }
+.fd-form { display: flex; flex-direction: column; gap: 1rem; max-width: 48rem; }
+.fd-form .field { margin-bottom: 0; }
+.fd-form input[type="text"], .fd-form input[type="tel"], .fd-form input[type="email"], .fd-form input[type="date"],
+.fd-form input[type="search"], .fd-form select, .fd-form textarea { width: 100%; max-width: 100%; }
+.fd-grupa { border: 1px solid var(--c-border-soft); border-radius: var(--radius); padding: 1rem; margin: 0; min-width: 0; }
+.fd-grupa > legend { font-weight: 700; font-size: 1.1rem; padding: 0 .35rem; }
+.fd-pola { display: flex; flex-direction: column; gap: 1rem; }
+.fd-tak-nie { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; }
+.fd-zalecane { font-weight: 400; }
+.radio--opis { flex-wrap: wrap; }
+.radio--opis .hint { flex-basis: 100%; padding-left: 1.75rem; }
+.fd-lokalizacja { border-bottom: 1px solid var(--c-border-soft); padding-bottom: 1rem; margin-bottom: 1rem; }
+.fd-lokalizacja h4, .fd-grupa h4 { margin: .75rem 0 .35rem; }
+.fd-geo-lista { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.fd-geo-lista .btn { text-align: left; white-space: normal; }
+.fd-geo-lista .btn[aria-pressed="true"] { background: var(--c-ok-bg); color: var(--c-ok-fg); border-color: var(--c-ok-fg); }
+.fd-urzadzenia { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .75rem; }
+.fd-urzadzenie { border: 1px solid var(--c-border-soft); border-left: 4px solid var(--c-primary); border-radius: var(--radius); padding: .75rem 1rem; overflow-wrap: anywhere; }
+.fd-urzadzenie.is-edytowane { border-left-color: var(--c-accent); }
+.fd-urzadzenie p { margin: .25rem 0; }
+.fd-urzadzenie__nazwa { margin: 0; font-size: 1.05rem; }
+.fd-urzadzenie__nazwa:focus, #h-fd-edytor:focus, #fd-geo-stan:focus { outline: 3px solid var(--c-focus); outline-offset: 2px; }
+.fd-edytor { margin-top: 1rem; border-top: 4px solid var(--c-accent); padding-top: .5rem; }
+.fd-edytor__akcje { padding: .75rem 0; border-top: 1px solid var(--c-border-soft); }

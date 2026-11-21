@@ -196,7 +196,7 @@
   const CECHY = [
     [/^(ul\.?|ulica)$/i, 'ul.'], [/^(al\.*|aleja|aleje|alei)$/i, 'al.'], [/^(pl\.?|plac|placu)$/i, 'pl.'],
     [/^(os\.?|osiedle|osiedla)$/i, 'os.'], [/^rondo$/i, 'rondo'], [/^(skwer|skw\.?)$/i, 'skwer'],
-    [/^(bulw\.?|bulwar)$/i, 'bulw.'], [/^(wybrzeże|wyb\.?|droga|trakt|park|ogród|ogrody|wyspa|szosa|zaułek|ścieżka|pasaż|wał|bulwary)$/i, 'inne']
+    [/^(bulw\.?|bulwar)$/i, 'bulw.'], [/^(wybrzeże|wyb\.?|droga|trakt|park|ogród|ogrody|wyspa|szosa|zaułek|ścieżka|pasaż|wał|bulwary|rynek)$/i, 'inne']
   ];
   // „inne” tylko z jawnym wyrazem – nie usuwamy go z nazwy (Rynek, Wybrzeże … są częścią nazwy)
   function cechaZWyrazu(w) {
@@ -393,7 +393,7 @@
 
   // ----------------------------------------------------------------- bool
   const PRAWDA = ['tak', 't', 'yes', 'y', '1', 'true', 'x', 'prawda', 'v', '✓', '✔', 'jest', 'posiada',
-    'room', 'corridor', 'area', 'wewnatrz', 'w budynku', 'wewnetrzny', 'wewnetrzna'];
+    'wewnatrz', 'w budynku', 'wewnetrzny', 'wewnetrzna'];
   const FALSZ = ['nie', 'n', 'no', '0', 'false', 'falsz', 'brak', 'zewnatrz', 'na zewnatrz', 'zewnetrzny', 'zewnetrzna', 'outdoor', 'outside'];
   const BOOL = {};
   PRAWDA.forEach(function (k) { BOOL[k] = true; });
@@ -413,24 +413,24 @@
     status: {
       aktywny: [['aktywny'], ['aktywne'], ['czynny'], ['sprawny'], ['dziala'], ['active'], ['ok', 'srednia'], ['tak', 'srednia'], ['yes', 'srednia'], ['w uzyciu']],
       tymczasowo_niedostepny: [['niedostepny'], ['tymczasowo niedostepny'], ['serwis'], ['w serwisie'], ['naprawa'], ['w naprawie'], ['nieczynny'], ['awaria'], ['remont'], ['kradziez'], ['skradziony']],
-      wycofany: [['wycofany'], ['usuniety'], ['zdemontowany'], ['zlikwidowany'], ['brak urzadzenia'], ['disused']],
+      wycofany: [['wycofany'], ['usuniety'], ['zdemontowany'], ['zlikwidowany'], ['brak urzadzenia']],
       do_weryfikacji: [['do weryfikacji'], ['niepotwierdzony'], ['do sprawdzenia'], ['nieznany', 'srednia']]
     },
     dostepnosc: {
       publiczna_24_7: [['24/7'], ['24h'], ['24 h'], ['24 godziny'], ['calodobowo'], ['calodobowa'], ['calodobowy'], ['cala dobe'], ['cala doba'],
         ['non stop'], ['nonstop'], ['zawsze'], ['publiczna 24/7'], ['publiczny 24/7'], ['ogolnodostepny calodobowo'], ['ogolnodostepna calodobowo']],
-      publiczna_w_godzinach: [['yes', 'srednia'], ['public', 'srednia'], ['publiczny', 'srednia'], ['publiczna', 'srednia'], ['ogolnodostepny', 'srednia'],
-        ['ogolnodostepna', 'srednia'], ['tak', 'niska'], ['w godzinach'], ['w godzinach otwarcia'], ['w godzinach pracy'], ['godziny pracy'], ['godziny otwarcia'], ['designated', 'niska'], ['permissive', 'niska']],
+      publiczna_w_godzinach: [['public', 'srednia'], ['publiczny', 'srednia'], ['publiczna', 'srednia'], ['ogolnodostepny', 'srednia'],
+        ['ogolnodostepna', 'srednia'], ['tak', 'niska'], ['w godzinach'], ['w godzinach otwarcia'], ['w godzinach pracy'], ['godziny pracy'], ['godziny otwarcia']],
       dla_klientow: [['customers'], ['klienci'], ['dla klientow'], ['klientow'], ['uzytkownicy'], ['dla uzytkownikow'], ['pacjenci'], ['dla pacjentow'], ['uczniowie', 'srednia'], ['goscie'], ['members', 'srednia']],
       tylko_personel: [['private', 'srednia'], ['prywatny', 'srednia'], ['personel'], ['tylko personel'], ['dla personelu'], ['pracownicy'], ['dla pracownikow'], ['na wezwanie'],
-        ['ochrona', 'srednia'], ['recepcja', 'srednia'], ['portiernia', 'srednia'], ['staff'], ['no', 'srednia'], ['nie', 'niska'], ['niedostepny', 'niska']],
+        ['ochrona', 'srednia'], ['recepcja', 'srednia'], ['portiernia', 'srednia'], ['staff'], ['nie', 'niska'], ['niedostepny', 'niska']],
       mobilny: [['mobilny'], ['mobilna'], ['pojazd'], ['karetka'], ['radiowoz'], ['patrol'], ['samochod'], ['ambulans'], ['woz strazacki']]
     },
     sposob_dostepu: {
-      otwarta_szafka: [['otwarta'], ['otwarta szafka'], ['uchwyt'], ['bez zabezpieczen'], ['bez zamka'], ['no', 'srednia'], ['nie', 'niska'], ['ogolnodostepna szafka']],
+      otwarta_szafka: [['otwarta'], ['otwarta szafka'], ['uchwyt'], ['bez zabezpieczen'], ['bez zamka'], ['nie', 'niska'], ['ogolnodostepna szafka']],
       szafka_z_alarmem: [['alarm'], ['z alarmem'], ['szafka z alarmem'], ['alarmem'], ['syrena'], ['sygnalizacja']],
       szafka_na_kod: [['kod'], ['na kod'], ['szafka na kod'], ['zamek szyfrowy'], ['szyfr'], ['pin'], ['code']],
-      szafka_na_klucz: [['klucz'], ['na klucz'], ['szafka na klucz'], ['zamknieta', 'srednia'], ['zamykana', 'srednia'], ['yes', 'niska'], ['tak', 'niska'], ['key']],
+      szafka_na_klucz: [['klucz'], ['na klucz'], ['szafka na klucz'], ['zamknieta', 'srednia'], ['zamykana', 'srednia'], ['tak', 'niska'], ['key']],
       u_personelu: [['u personelu'], ['personel'], ['wydawany'], ['wydaje personel'], ['recepcja'], ['portiernia'], ['portier'], ['ochrona'], ['dyzurka'], ['sekretariat']],
       nieznany: [['nieznany'], ['brak danych', 'srednia'], ['nie wiadomo']]
     },
@@ -438,7 +438,6 @@
       pomiar_gps: [['gps'], ['pomiar'], ['pomiar gps']],
       wskazanie_na_mapie: [['mapa'], ['z mapy'], ['wskazanie'], ['wskazanie na mapie']],
       geokodowanie_adresu: [['geokodowanie'], ['z adresu'], ['adres', 'srednia'], ['geocoding'], ['geokoder']],
-      osm: [['osm'], ['openstreetmap'], ['open street map']],
       nieznane: [['nieznane'], ['nieznany'], ['brak']]
     },
     cecha_ulicy: {
@@ -476,8 +475,7 @@
     },
     licencja_rekordu: {
       'CC0-1.0': [['cc0'], ['cc0 1 0'], ['cc 0'], ['domena publiczna'], ['public domain'], ['cc zero']],
-      'CC-BY-4.0': [['cc by'], ['cc by 4 0'], ['ccby'], ['uznanie autorstwa'], ['cc by 4 0 international'], ['attribution']],
-      'ODbL-1.0': [['odbl'], ['odbl 1 0'], ['open database license'], ['open data commons open database license']]
+      'CC-BY-4.0': [['cc by'], ['cc by 4 0'], ['ccby'], ['uznanie autorstwa'], ['cc by 4 0 international'], ['attribution']]
     }
   };
 
@@ -524,9 +522,9 @@
     if (ix.kody.indexOf(s) >= 0) return { wartosc: s, pewnosc: 'wysoka' };
     const k = klucz(s);
     if (ix.dokladne[k]) return { wartosc: ix.dokladne[k].kod, pewnosc: ix.dokladne[k].pewnosc };
-    // OSM: kilka wartości rozdzielonych średnikiem – pierwsza
     // dostępność: znacznik całodobowości ma pierwszeństwo przed najdłuższym synonimem
     if (nazwa === 'dostepnosc' && RE_24_7.test(bezOgonkow(s))) return { wartosc: 'publiczna_24_7', pewnosc: 'srednia' };
+    // kilka wartości rozdzielonych średnikiem – pierwsza
     if (/;/.test(s)) { const p = slownik(nazwa, s.split(';')[0]); if (p.wartosc) return p; }
     const kk = ' ' + k + ' ';
     for (let i = 0; i < ix.zawiera.length; i++) {
@@ -573,7 +571,7 @@
   const CZASY = T + '(?:,' + T + ')*';
   const REGULA = '(?:(?:' + DNIRE + ')\\s+)?(?:' + CZASY + ')|(?:' + DNIRE + ')\\s+(?:off|closed)|24/7';
   const RE_OH = new RegExp('^(?:' + REGULA + ')(?:\\s*[;,]\\s*(?:' + REGULA + '))*$');
-  /** Czy tekst to (uproszczona) poprawna składnia OSM opening_hours. */
+  /** Czy tekst to (uproszczona) poprawna składnia opening_hours. */
   function poprawneGodziny(t) { return RE_OH.test(tekst(t)); }
 
   /** „pn-pt 7:30-15:30” -> „Mo-Fr 07:30-15:30”; „24h”, „całodobowo” -> „24/7”. Zwraca null, gdy nie da się przetłumaczyć. */
@@ -615,7 +613,7 @@
     if (m) return Number(m[1]);
     const rz = /^(i{1,3}|iv|v|vi{1,3}|ix|x)\.?\s*(?:(?:p|pietro|pietra)\.?)?$/.exec(k);   // „I piętro”
     if (rz) return { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10 }[rz[1]];
-    const m2 = /^([+-]?\d+)\s*;/.exec(k); // OSM level=0;1
+    const m2 = /^([+-]?\d+)\s*;/.exec(k); // „0;1” – pierwsza wartość
     return m2 ? Number(m2[1]) : null;
   }
 

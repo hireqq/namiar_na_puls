@@ -1,7 +1,7 @@
-/* Testy źródeł zdalnych (OpenStreetMap / Overpass i dane.gov.pl).
+/* Testy źródła zdalnego dane.gov.pl.
    Uruchomienie: node tests/zdalne.test.js   (Node 18+, bez zależności npm)
    Skrypty aplikacji ładujemy w vm z minimalnym `window`; `fetch` podmieniamy na odpowiedzi
-   z tests/fixtures/api/ (prawdziwe odpowiedzi API dane.gov.pl z 2026-11-21 + fikcyjna odpowiedź Overpass). */
+   z tests/fixtures/api/ (prawdziwe odpowiedzi API dane.gov.pl z 2026-11-21). */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -28,11 +28,11 @@ ctx.window = ctx;
 ctx.self = ctx;
 vm.createContext(ctx);
 ['vendor/papaparse/papaparse.min.js', 'js/core/ns.js', 'js/schema/schema.js', 'js/ui/dom.js',
-  'js/sources/file.js', 'js/sources/osm.js', 'js/sources/dgp.js'].forEach(function (p) {
+  'js/sources/file.js', 'js/sources/dgp.js'].forEach(function (p) {
   vm.runInContext(czytaj(p), ctx, { filename: p });
 });
 const AED = ctx.AED;
-const osm = AED.zrodla.osm, dgp = AED.zrodla.dgp;
+const dgp = AED.zrodla.dgp;
 
 const json = function (tekst, status) {
   return new Response(tekst, { status: status || 200, headers: { 'Content-Type': 'application/json' } });
@@ -61,138 +61,6 @@ async function oczekujBledu(obietnica, kod) {
 const testy = [];
 const test = function (nazwa, fn) { testy.push({ nazwa, fn }); };
 
-// ================================================================ OSM
-test('OSM: lista 16 województw w kontrakcie', function () {
-  assert.strictEqual(osm.OBSZARY.wojewodztwa.length, 16);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(osm.OBSZARY.wojewodztwa[0])), { kod: 'PL-02', nazwa: 'dolnośląskie' });
-  assert.ok(osm.OBSZARY.wojewodztwa.some(function (w) { return w.kod === 'PL-18' && w.nazwa === 'podkarpackie'; }));
-});
-
-test('OSM: zapytanie – cała Polska', function () {
-  const z = osm._test.zbudujZapytanie({ zakres: 'polska' });
-  assert.match(z.zapytanie, /^\[out:json\]\[timeout:\d+\];/);
-  assert.match(z.zapytanie, /area\["ISO3166-1"="PL"\]\["admin_level"="2"\]->\.a;/);
-  assert.match(z.zapytanie, /nwr\["emergency"="defibrillator"\]\(area\.a\);/);
-  assert.match(z.zapytanie, /out center tags;/);
-});
-
-test('OSM: zapytanie – województwo (kod TERYT i literowy ISO)', function () {
-  const z = osm._test.zbudujZapytanie({ zakres: 'wojewodztwo', kod: 'PL-18' });
-  assert.match(z.zapytanie, /\["ISO3166-2"~"\^PL-\(18\|PK\)\$"\]/);
-  assert.match(z.zapytanie, /\["teryt:terc"="18"\]/);
-  assert.match(z.zapytanie, /\["admin_level"="4"\]/);
-  assert.strictEqual(z.opis, 'województwo podkarpackie');
-  const z2 = osm._test.zbudujZapytanie({ zakres: 'wojewodztwo', kod: 'PL-MZ' });
-  assert.match(z2.zapytanie, /PL-\(14\|MZ\)/);
-});
-
-test('OSM: zapytanie – gmina po TERYT, po nazwie, miasto na prawach powiatu', function () {
-  const t = osm._test.zbudujZapytanie({ zakres: 'gmina', gmina: '1816115' });
-  assert.match(t.zapytanie, /\["admin_level"="7"\]\["teryt:terc"="1816115"\]/);
-  const m = osm._test.zbudujZapytanie({ zakres: 'gmina', gmina: '1861011' }); // Krosno
-  assert.match(m.zapytanie, /\["admin_level"="6"\]\["teryt:terc"="1861"\]/);
-  const n = osm._test.zbudujZapytanie({ zakres: 'gmina', gmina: 'gmina Rymanów' });
-  assert.match(n.zapytanie, /\["name"~"\^\(gmina \)\?Rymanów\$",i\]\(area\.pl\)->\.a;/);
-  const s = osm._test.zbudujZapytanie({ zakres: 'gmina', gmina: 'Nowy "Targ" (x)' });
-  assert.ok(s.zapytanie.indexOf('Nowy \\"Targ\\" \\\\(x\\\\)') >= 0, 'cudzysłowy i nawiasy powinny być zabezpieczone');
-});
-
-test('OSM: niepoprawne opcje -> FORMAT', async function () {
-  await oczekujBledu(osm.pobierz({ zakres: 'wojewodztwo', kod: 'PL-99' }, {}), 'FORMAT');
-  await oczekujBledu(osm.pobierz({ zakres: 'gmina', gmina: ' ' }, {}), 'FORMAT');
-  await oczekujBledu(osm.pobierz({ zakres: 'powiat' }, {}), 'FORMAT');
-});
-
-test('OSM: pobranie i spłaszczenie (node + way z center)', async function () {
-  wywolania.length = 0;
-  obslugaFetch = function () { return Promise.resolve(json(fixture('overpass_przyklad.json'))); };
-  const postep = [];
-  const w = await osm.pobierz({ zakres: 'gmina', gmina: '1807062' }, { onPostep: function (t) { postep.push(t); } });
-
-  assert.strictEqual(wywolania.length, 1);
-  assert.strictEqual(wywolania[0].url, osm.SERWERY[0]);
-  assert.strictEqual(wywolania[0].init.method, 'POST');
-  assert.ok(decodeURIComponent(wywolania[0].init.body.replace(/^data=/, '')).indexOf('"teryt:terc"="1807062"') >= 0);
-
-  assert.deepStrictEqual(zwykly(w.kolumny.slice(0, 6)), ['osm_typ', 'osm_id', 'lat', 'lon', 'name', 'defibrillator:location']);
-  assert.ok(w.kolumny.indexOf('emergency') < 0, 'emergency jest stałe – bez kolumny');
-  assert.ok(w.kolumny.indexOf('note') < 0, 'kolumna z samymi spacjami powinna zniknąć');
-  assert.strictEqual(w.wiersze.length, 3, 'relacja bez center pominięta');
-  const way = w.wiersze.find(function (r) { return r.osm_typ === 'way'; });
-  assert.strictEqual(way.lat, '49.6899');
-  assert.strictEqual(way.lon, '21.7601');
-  assert.strictEqual(way.osm_id, '900000003');
-  assert.strictEqual(way.access, '');
-  w.wiersze.forEach(function (r) {
-    Object.keys(r).forEach(function (k) { assert.strictEqual(typeof r[k], 'string'); });
-    assert.deepStrictEqual(Object.keys(r), zwykly(w.kolumny));
-  });
-
-  assert.strictEqual(w.meta.licencjaSugerowana, 'ODbL-1.0');
-  assert.match(w.meta.atrybucja, /OpenStreetMap/);
-  assert.strictEqual(w.meta.dataDanych, '2026-11-21T12:00:00Z');
-  assert.strictEqual(w.meta.url, osm.SERWERY[0]);
-  assert.match(w.meta.zapytanie, /emergency/);
-  assert.ok(Array.isArray(w.meta.naprawy));
-  assert.ok(w.meta.ostrzezenia.some(function (t) { return /1 z 3 .*defibrillator:location/.test(t); }), w.meta.ostrzezenia.join(' | '));
-  assert.ok(w.meta.ostrzezenia.some(function (t) { return /1 z 3 .*bez adresu/.test(t); }));
-  assert.ok(w.meta.ostrzezenia.some(function (t) { return /środek obiektu/.test(t); }));
-  assert.ok(w.meta.ostrzezenia.some(function (t) { return /Pominięto 1 obiekt/.test(t); }));
-  assert.strictEqual(typeof w.meta.wzorzec.zgodny, 'boolean');
-  assert.ok(postep.some(function (t) { return /Wysyłanie zapytania/.test(t); }));
-  assert.ok(postep.some(function (t) { return /Przetwarzanie 5 obiektów/.test(t); }));
-});
-
-test('OSM: 429 na pierwszym serwerze -> zapasowy', async function () {
-  wywolania.length = 0;
-  obslugaFetch = function (url) {
-    return Promise.resolve(url === osm.SERWERY[0] ? new Response('Too Many Requests', { status: 429 }) : json(fixture('overpass_przyklad.json')));
-  };
-  const postep = [];
-  const w = await osm.pobierz({ zakres: 'wojewodztwo', kod: 'PL-18' }, { onPostep: function (t) { postep.push(t); } });
-  assert.strictEqual(w.meta.url, osm.SERWERY[1]);
-  assert.strictEqual(wywolania.length, 2);
-  assert.ok(postep.some(function (t) { return /przeciążony/.test(t); }), postep.join(' | '));
-  assert.ok(!postep.some(function (t) { return /\b(LIMIT|SIEC|TIMEOUT)\b/.test(t); }), 'bez surowych kodów w komunikatach');
-});
-
-test('OSM: 429 na wszystkich -> LIMIT; 504 -> LIMIT', async function () {
-  obslugaFetch = function () { return Promise.resolve(new Response('x', { status: 429 })); };
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, {}), 'LIMIT');
-  obslugaFetch = function () { return Promise.resolve(new Response('x', { status: 504 })); };
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, {}), 'LIMIT');
-});
-
-test('OSM: runtime error w remark -> TIMEOUT', async function () {
-  obslugaFetch = function () {
-    return Promise.resolve(json(JSON.stringify({ osm3s: {}, elements: [], remark: 'runtime error: Query timed out in "query" at line 3 after 61 seconds.' })));
-  };
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, {}), 'TIMEOUT');
-});
-
-test('OSM: brak sieci (TypeError) -> SIEC; przerwanie -> PRZERWANO', async function () {
-  obslugaFetch = typeError;
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, {}), 'SIEC');
-  const ctrl = new AbortController();
-  obslugaFetch = czekajNaPrzerwanie;
-  const p = osm.pobierz({ zakres: 'polska' }, { signal: ctrl.signal });
-  setTimeout(function () { ctrl.abort(); }, 10);
-  await oczekujBledu(p, 'PRZERWANO');
-  wywolania.length = 0;
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, { signal: ctrl.signal }), 'PRZERWANO');
-  assert.strictEqual(wywolania.length, 0, 'już przerwany sygnał – bez zapytania');
-});
-
-test('OSM: gmina nieznaleziona / brak AED -> BRAK_DANYCH', async function () {
-  obslugaFetch = function () { return Promise.resolve(json(JSON.stringify({ osm3s: {}, elements: [] }))); };
-  const e = await oczekujBledu(osm.pobierz({ zakres: 'gmina', gmina: 'Atlantyda' }, {}), 'BRAK_DANYCH');
-  assert.match(e.message, /Nie znaleziono w OpenStreetMap gminy/);
-  obslugaFetch = function () {
-    return Promise.resolve(json(JSON.stringify({ osm3s: {}, elements: [{ type: 'area', id: 1, tags: { name: 'X' } }] })));
-  };
-  await oczekujBledu(osm.pobierz({ zakres: 'gmina', gmina: 'X' }, {}), 'BRAK_DANYCH');
-});
-
 // ========================================================== dane.gov.pl
 const ROUTER_DGP = function (url) {
   let m;
@@ -214,7 +82,7 @@ test('DGP: mapowanie licencji na słownik licencja_rekordu', function () {
   assert.strictEqual(dgp.mapujLicencje('CC0 1.0'), 'CC0-1.0');
   assert.strictEqual(dgp.mapujLicencje('CC BY 4.0'), 'CC-BY-4.0');
   assert.strictEqual(dgp.mapujLicencje('cc-by-4.0'), 'CC-BY-4.0');
-  assert.strictEqual(dgp.mapujLicencje('ODbL 1.0'), 'ODbL-1.0');
+  assert.strictEqual(dgp.mapujLicencje('Open Database License 1.0'), '', 'licencja spoza wzorca');
   assert.strictEqual(dgp.mapujLicencje('CC BY-SA 4.0'), '');
   assert.strictEqual(dgp.mapujLicencje('CC BY-NC-SA 4.0'), '');
   assert.strictEqual(dgp.mapujLicencje(''), '');
@@ -351,42 +219,6 @@ const treoscBezKonca = function (init, poczatek, typ) {
   });
   return Promise.resolve(new Response(strumien, { status: 200, headers: { 'Content-Type': typ || 'application/json' } }));
 };
-
-test('OSM: przerwanie w trakcie czytania treści -> PRZERWANO', async function () {
-  const ctrl = new AbortController();
-  obslugaFetch = function (url, init) { setTimeout(function () { ctrl.abort(); }, 20); return treoscBezKonca(init, '{"elements":['); };
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, { signal: ctrl.signal }), 'PRZERWANO');
-});
-
-test('OSM: HTML/zły JSON z serwera -> kolejny serwer; wszystkie FORMAT -> FORMAT; 400 -> od razu', async function () {
-  wywolania.length = 0;
-  obslugaFetch = function (url) {
-    return Promise.resolve(url === osm.SERWERY[0] ? new Response('<html>błąd</html>', { status: 200, headers: { 'Content-Type': 'text/html' } })
-      : json(fixture('overpass_przyklad.json')));
-  };
-  const w = await osm.pobierz({ zakres: 'gmina', gmina: '1807062' }, {});
-  assert.strictEqual(w.meta.url, osm.SERWERY[1]);
-
-  wywolania.length = 0;
-  obslugaFetch = function () { return Promise.resolve(new Response('<html></html>', { status: 200, headers: { 'Content-Type': 'text/html' } })); };
-  const e = await oczekujBledu(osm.pobierz({ zakres: 'gmina', gmina: '1807062' }, {}), 'FORMAT');
-  assert.strictEqual(wywolania.length, osm.SERWERY.length);
-  assert.strictEqual(e.bledySerwerow.length, osm.SERWERY.length);
-
-  wywolania.length = 0;
-  obslugaFetch = function () { return Promise.resolve(new Response('<p><strong>Error</strong>: line 1: parse error</p>', { status: 400 })); };
-  await oczekujBledu(osm.pobierz({ zakres: 'polska' }, {}), 'FORMAT');
-  assert.strictEqual(wywolania.length, 1, 'błąd zapytania (400) jest ostateczny');
-});
-
-test('OSM: wspólny budżet czasu (limit + 60 s), krótsze limity serwerów zapasowych', function () {
-  const b = osm._test.budzetCzasu(osm._test.zbudujZapytanie({ zakres: 'polska' }));
-  assert.strictEqual(b.calkowity, 360000);
-  assert.strictEqual(b.pierwszy, 330000);
-  assert.ok(b.zapasowy < b.pierwszy);
-  const g = osm._test.budzetCzasu(osm._test.zbudujZapytanie({ zakres: 'gmina', gmina: '1807062' }));
-  assert.strictEqual(g.calkowity, 120000);
-});
 
 test('DGP: przerwanie w trakcie czytania treści /data -> PRZERWANO', async function () {
   const ctrl = new AbortController();

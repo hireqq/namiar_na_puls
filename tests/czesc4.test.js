@@ -24,7 +24,7 @@ ctx.window = ctx;
 ctx.self = ctx;
 vm.createContext(ctx);
 ['vendor/papaparse/papaparse.min.js', 'vendor/sheetjs/xlsx.full.min.js', 'js/core/ns.js', 'js/schema/schema.js', 'js/ui/dom.js',
-  'js/sources/file.js', 'js/sources/osm.js', 'js/core/store.js',
+  'js/sources/file.js', 'js/core/store.js',
   'js/core/normalizacja.js', 'js/core/mapowanie.js', 'js/core/walidacja.js',
   'js/core/duplikaty.js', 'js/core/eksport.js'].forEach(function (p) {
   vm.runInContext(czytaj(p), ctx, { filename: p });
@@ -63,19 +63,21 @@ function przesun(lat, lon, d, az) {
   return { lat: lat + d * Math.cos(r) / 111320, lon: lon + d * Math.sin(r) / (111320 * Math.cos(lat * Math.PI / 180)) };
 }
 
-/** Syntetyczne źródło OSM: każdy punkt Krosna przesunięty o 5–40 m; różne zestawy tagów. */
-function zrodloOsmZKrosna(krosno) {
+/** Drugie, syntetyczne źródło (plik innego dysponenta, CC BY 4.0, priorytet 2): każdy punkt Krosna przesunięty o 5–40 m;
+    różne zestawy wypełnionych kolumn (nazwa / adres / same współrzędne). */
+const KOL_SYN = ['zrodlo_id_rekordu', 'lat', 'lon', 'nazwa', 'ulica', 'numer_budynku', 'dostepnosc', 'godziny_dostepnosci'];
+function zrodloSyntetyczneZKrosna(krosno) {
   const elementy = krosno.map(function (r, i) {
     const d = 5 + (i * 7) % 36;          // 5…40 m
     const p = przesun(r.szerokosc_geograficzna, r.dlugosc_geograficzna, d, (i * 47) % 360);
-    const tags = { emergency: 'defibrillator', access: 'yes', opening_hours: '24/7' };
-    if (i % 3 === 0) tags.name = r.nazwa;
-    if (i % 3 === 1 && r.ulica) { tags['addr:street'] = r.ulica; if (r.numer_budynku) tags['addr:housenumber'] = r.numer_budynku; }
-    return { type: 'node', id: 800000000 + i, lat: Number(p.lat.toFixed(7)), lon: Number(p.lon.toFixed(7)), tags: tags, _d: d, _krosno: r._id };
+    const w = { zrodlo_id_rekordu: 'syn/' + (800000000 + i), lat: p.lat.toFixed(7), lon: p.lon.toFixed(7), nazwa: '', ulica: '', numer_budynku: '',
+      dostepnosc: 'publiczna_24_7', godziny_dostepnosci: '24/7' };
+    if (i % 3 === 0) w.nazwa = r.nazwa;
+    if (i % 3 === 1 && r.ulica) { w.ulica = r.ulica; if (r.numer_budynku) w.numer_budynku = r.numer_budynku; }
+    return { wiersz: w, _d: d, _krosno: r._id, maNazwe: !!w.nazwa, maAdres: !!w.ulica };
   });
-  const w = AED.zrodla.osm._test.splaszcz(elementy);
-  const z = { id: 'osm-syntetyczny', kod: 'OSM-01', typ: 'OSM', nazwa: 'OSM (syntetyczny)', licencja: 'ODbL-1.0', dysponent: '',
-    priorytet: 3, kolumny: w.kolumny, wiersze: w.wiersze, meta: { atrybucja: AED.zrodla.osm.ATRYBUCJA }, dataPobrania: '2026-11-21T11:00:00' };
+  const z = { id: 'plik-syntetyczny', kod: 'PLIK-02', typ: 'PLIK', nazwa: 'Plik syntetyczny', licencja: 'CC-BY-4.0', dysponent: 'Fundacja Przykładowa',
+    priorytet: 2, kolumny: KOL_SYN.slice(), wiersze: elementy.map(function (e) { return e.wiersz; }), meta: {}, dataPobrania: '2026-11-21T11:00:00' };
   return { zrodlo: z, elementy: elementy };
 }
 
@@ -162,20 +164,20 @@ test('duplikaty: Krosno + Przemyśl + Marki (prawdziwe dane) – tylko grupy nis
   assert.deepStrictEqual(zwykly(s.raport), { grupy: 4, scalone: 0, rozdzielone: 4, usuniete: 0, pominiete: 0, automatycznie: 0, noweId: [] });
 });
 
-test('duplikaty: Krosno (dane.gov.pl) + syntetyczny OSM przesunięty o 5–40 m', async function () {
+test('duplikaty: Krosno (dane.gov.pl) + syntetyczne drugie źródło przesunięte o 5–40 m', async function () {
   const krosno = rekordyZ(await zrodloDgp('krosno'));
-  const osm = zrodloOsmZKrosna(krosno);
-  const ro = rekordyZ(osm.zrodlo);
+  const syn = zrodloSyntetyczneZKrosna(krosno);
+  const ro = rekordyZ(syn.zrodlo);
   assert.strictEqual(ro.length, krosno.length);
   const w = D.znajdz(krosno.concat(ro));
-  statystyki.push(['Krosno + OSM (42 rek.)', JSON.stringify(zwykly(w.podsumowanie))]);
+  statystyki.push(['Krosno + syntetyczne (42 rek.)', JSON.stringify(zwykly(w.podsumowanie))]);
   let trafione = 0, wysokie = 0;
-  osm.elementy.forEach(function (el, i) {
+  syn.elementy.forEach(function (el, i) {
     const r = ro[i];
     const g = grupaZ(w, r._id);
-    const opis = 'OSM ' + i + ' (' + el._d + ' m, tagi: ' + Object.keys(el.tags).join(',') + ')';
+    const opis = 'SYN ' + i + ' (' + el._d + ' m, nazwa: ' + el.maNazwe + ', adres: ' + el.maAdres + ')';
     // bez nazwy i adresu i dalej niż 30 m – nie ma podstaw, by uznać za duplikat
-    if (!g) { assert.ok(el._d >= 30 && !el.tags.name && !el.tags['addr:street'], opis + ' – brak grupy'); return; }
+    if (!g) { assert.ok(el._d >= 30 && !el.maNazwe && !el.maAdres, opis + ' – brak grupy'); return; }
     assert.ok(g.rekordy.indexOf(el._krosno) >= 0, opis + ' – grupa bez swojego odpowiednika z Krosna');
     trafione++;
     if (g.pewnosc === 'wysoka') {
@@ -200,10 +202,10 @@ test('duplikaty: dwa AED w tym samym budynku na różnych piętrach – nie są 
     kondygnacja: 0, opis_lokalizacji: 'Parter, przy wejściu głównym', id_lokalne: null });
   const b = rek({ nazwa: 'Galeria Przykładowa', ulica: 'Długa', numer_budynku: '10', szerokosc_geograficzna: 50.00002, dlugosc_geograficzna: 20.00001,
     kondygnacja: 2, opis_lokalizacji: 'II piętro, obok kina', id_lokalne: null });
-  // OSM: ten sam budynek, poziom 1 – też inne urządzenie
-  const c = rek({ _zrodlo: 'osm', nazwa: 'Galeria Przykładowa', szerokosc_geograficzna: 50.00004, dlugosc_geograficzna: 20.0, kondygnacja: 1,
-    _kodZrodla: 'OSM-01', licencja_rekordu: 'ODbL-1.0' });
-  c._zrodlo = 'osm';
+  // drugie źródło: ten sam budynek, poziom 1 – też inne urządzenie
+  const c = rek({ _zrodlo: 'syn', nazwa: 'Galeria Przykładowa', szerokosc_geograficzna: 50.00004, dlugosc_geograficzna: 20.0, kondygnacja: 1,
+    _kodZrodla: 'PLIK-02', licencja_rekordu: 'CC-BY-4.0' });
+  c._zrodlo = 'syn';
   const w = D.znajdz([a, b, c]);
   w.grupy.forEach(function (g) { assert.notStrictEqual(g.pewnosc, 'wysoka', g.powody.join(' | ')); });
   const g = grupaZ(w, a._id);
@@ -263,10 +265,10 @@ test('odstające: poza województwem (z pola i z kodu TERC), daleko od miejscowo
 // ================================================================ scalanie
 test('scal: priorytety źródeł, uzupełnianie pustych pól, pochodzenie, licencja, decyzje', async function () {
   const krosno = rekordyZ(await zrodloDgp('krosno'));
-  const osm = zrodloOsmZKrosna(krosno);
-  const ro = rekordyZ(osm.zrodlo);
+  const syn = zrodloSyntetyczneZKrosna(krosno);
+  const ro = rekordyZ(syn.zrodlo);
   const wszystkie = krosno.concat(ro);
-  const w = D.znajdz(wszystkie, { zrodla: [await zrodloDgp('krosno'), osm.zrodlo] });
+  const w = D.znajdz(wszystkie, { zrodla: [await zrodloDgp('krosno'), syn.zrodlo] });
   const wys = w.grupy.filter(function (g) { return g.pewnosc === 'wysoka'; });
   const s = D.scal(wszystkie, w.grupy, {});
   assert.strictEqual(s.raport.scalone, wys.length);
@@ -281,16 +283,16 @@ test('scal: priorytety źródeł, uzupełnianie pustych pól, pochodzenie, licen
   assert.strictEqual(m.id_aed, glowny.id_aed, 'id_aed z głównego');
   assert.strictEqual(m.nazwa, glowny.nazwa);
   assert.strictEqual(m.szerokosc_geograficzna, glowny.szerokosc_geograficzna);
-  assert.strictEqual(m.godziny_dostepnosci, '24/7', 'puste pole uzupełnione z OSM');
+  assert.strictEqual(m.godziny_dostepnosci, '24/7', 'puste pole uzupełnione z drugiego źródła');
   assert.strictEqual(m.dostepnosc, 'publiczna_24_7');
-  assert.strictEqual(m.zrodlo_danych, 'DGP-01;OSM-01');
-  assert.strictEqual(m.zrodlo_id_rekordu, inny.zrodlo_id_rekordu, 'node/… z OSM');
-  assert.strictEqual(m.licencja_rekordu, 'ODbL-1.0', 'pole z OSM -> licencja ODbL');
+  assert.strictEqual(m.zrodlo_danych, 'DGP-01;PLIK-02');
+  assert.strictEqual(m.zrodlo_id_rekordu, inny.zrodlo_id_rekordu, 'syn/… z drugiego źródła');
+  assert.strictEqual(m.licencja_rekordu, 'CC-BY-4.0', 'pole z drugiego źródła -> licencja CC BY');
   assert.deepStrictEqual(zwykly(m._scalonoZ.map(function (x) { return [x._id, x.kodZrodla, x.rola]; })),
-    [[glowny._id, 'DGP-01', 'nadrzedne'], [inny._id, 'OSM-01', 'duplikat_scalony']]);
+    [[glowny._id, 'DGP-01', 'nadrzedne'], [inny._id, 'PLIK-02', 'duplikat_scalony']]);
   assert.ok(!wszystkie.find(function (r) { return r._id === g.glowny; })._scalonoZ, 'rekordy wejściowe bez zmian');
 
-  // decyzje: rozdziel pewną grupę; scal niską; główny OSM z nazwą wybraną z Krosna
+  // decyzje: rozdziel pewną grupę; scal niską; główny z drugiego źródła z nazwą wybraną z Krosna
   const niska = w.grupy.find(function (x) { return x.pewnosc !== 'wysoka'; });
   const dec = {};
   dec[g.id] = { status: 'scal', glowny: inny._id, wartosci: { nazwa: glowny._id, wspolrzedne: glowny._id } };
@@ -303,56 +305,58 @@ test('scal: priorytety źródeł, uzupełnianie pustych pól, pochodzenie, licen
   assert.strictEqual(m2.id_aed, inny.id_aed);
   assert.strictEqual(m2.nazwa, glowny.nazwa);
   assert.strictEqual(m2.szerokosc_geograficzna, glowny.szerokosc_geograficzna);
-  assert.strictEqual(m2.zrodlo_danych, 'OSM-01;DGP-01');
+  assert.strictEqual(m2.zrodlo_danych, 'PLIK-02;DGP-01');
   assert.ok(wys[1].rekordy.every(function (id) { return s2.rekordy.some(function (r) { return r._id === id; }); }), 'rozdzielone zostają');
 });
 
 test('scal: licencja wynikowa = najbardziej restrykcyjna z użytych rekordów', function () {
   const a = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51, dlugosc_geograficzna: 19, licencja_rekordu: 'CC0-1.0',
     godziny_dostepnosci: 'Mo-Fr 08:00-16:00' });
-  const b = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.00005, dlugosc_geograficzna: 19, licencja_rekordu: 'ODbL-1.0',
+  const b = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.00005, dlugosc_geograficzna: 19, licencja_rekordu: 'CC-BY-4.0',
     godziny_dostepnosci: 'Mo-Fr 08:00-15:00' });
-  b._zrodlo = 'osm'; b._kodZrodla = 'OSM-01'; b.zrodlo_danych = 'OSM-01';
-  const c = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.00003, dlugosc_geograficzna: 19, licencja_rekordu: 'CC-BY-4.0',
+  b._zrodlo = 'syn'; b._kodZrodla = 'PLIK-02'; b.zrodlo_danych = 'PLIK-02';
+  const c = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.00003, dlugosc_geograficzna: 19, licencja_rekordu: 'CC0-1.0',
     telefon_kontaktowy: '123456789' });
   c._zrodlo = 'marki'; c._kodZrodla = 'DGP-03'; c.zrodlo_danych = 'DGP-03';
-  const w = D.znajdz([a, b, c], { zrodla: [{ id: 'test', priorytet: 1 }, { id: 'osm', priorytet: 3 }, { id: 'marki', priorytet: 2 }] });
+  const zr = [{ id: 'test', priorytet: 1 }, { id: 'syn', priorytet: 3 }, { id: 'marki', priorytet: 2 }];
+  const w = D.znajdz([a, b, c], { zrodla: zr });
   assert.strictEqual(w.grupy.length, 1);
   assert.strictEqual(w.grupy[0].glowny, a._id);
   assert.deepStrictEqual(zwykly(w.grupy[0].rekordy), [a._id, c._id, b._id], 'kolejność wg priorytetu');
   const kg = w.grupy[0].konflikty.find(function (k) { return k.pole === 'godziny_dostepnosci'; });
   assert.ok(kg && kg.proponowana === a._id && kg.wartosci.length === 2);
-  // OSM nic nie wnosi (godziny ma główny) -> CC BY (z telefonu z Marek)
-  let s = D.scal([a, b, c], w.grupy, {});
+  // źródło CC BY nic nie wnosi (godziny ma główny) -> CC0 (telefon z Marek na CC0)
+  let s = D.scal([a, b, c], w.grupy, {}, { zrodla: zr });
   assert.strictEqual(s.rekordy.length, 1);
-  assert.strictEqual(s.rekordy[0].licencja_rekordu, 'CC-BY-4.0');
+  assert.strictEqual(s.rekordy[0].licencja_rekordu, 'CC0-1.0');
   assert.strictEqual(s.rekordy[0].telefon_kontaktowy, '123456789');
-  assert.strictEqual(s.rekordy[0].zrodlo_danych, 'PLIK-01;DGP-03;OSM-01');
-  // wybór godzin z OSM -> ODbL
+  assert.strictEqual(s.rekordy[0].zrodlo_danych, 'PLIK-01;DGP-03;PLIK-02');
+  // wybór godzin ze źródła CC BY -> CC BY
   const dec = {}; dec[w.grupy[0].id] = { status: 'scal', wartosci: { godziny_dostepnosci: b._id } };
-  s = D.scal([a, b, c], w.grupy, dec);
+  s = D.scal([a, b, c], w.grupy, dec, { zrodla: zr });
   assert.strictEqual(s.rekordy[0].godziny_dostepnosci, 'Mo-Fr 08:00-15:00');
-  assert.strictEqual(s.rekordy[0].licencja_rekordu, 'ODbL-1.0');
+  assert.strictEqual(s.rekordy[0].licencja_rekordu, 'CC-BY-4.0');
   // licencja zbioru
-  const lz = E.licencjaZbioru(s.rekordy, [{ kod: 'DGP-03', nazwa: 'Defibrylatory Marki', dysponent: 'Urząd Miasta Marki', meta: { zbior: { url: 'https://dane.gov.pl/pl/dataset/4955' } } }]);
-  assert.strictEqual(lz.kod, 'ODbL-1.0');
-  assert.ok(/share-alike/.test(lz.uzasadnienie));
-  assert.ok(lz.atrybucje.some(function (t) { return /OpenStreetMap/.test(t); }));
-  assert.ok(lz.atrybucje.some(function (t) { return /Urząd Miasta Marki/.test(t) && /CC BY 4.0/.test(t); }));
+  const lz = E.licencjaZbioru(s.rekordy, [{ kod: 'PLIK-02', nazwa: 'Defibrylatory fundacji', dysponent: 'Fundacja Przykładowa', meta: { url: 'https://fundacja.example.pl/aed' } }]);
+  assert.strictEqual(lz.kod, 'CC-BY-4.0');
+  assert.ok(/uznanie autorstwa/.test(lz.uzasadnienie));
+  assert.strictEqual(lz.atrybucje.length, 1);
+  assert.ok(/Fundacja Przykładowa/.test(lz.atrybucje[0]) && /CC BY 4.0/.test(lz.atrybucje[0]) && /fundacja\.example\.pl/.test(lz.atrybucje[0]));
+  assert.deepStrictEqual(zwykly(Object.keys(lz.liczby)).sort(), ['CC-BY-4.0', 'CC0-1.0', 'brak']);
   assert.strictEqual(E.licencjaZbioru([a]).kod, 'CC0-1.0');
-  assert.strictEqual(E.licencjaZbioru([a, c]).kod, 'CC-BY-4.0');
+  assert.strictEqual(E.licencjaZbioru([a, b]).kod, 'CC-BY-4.0');
   assert.ok(/uzupełnij/.test(E.licencjaZbioru([rek({ licencja_rekordu: null })]).uzasadnienie));
 });
 
 test('scal: reguła wzorca – wartość z najnowszej data_weryfikacji, przy remisie priorytet źródła; wklad = lista pól', function () {
-  const zr = [{ id: 'test', priorytet: 1 }, { id: 'osm', priorytet: 3 }, { id: 'marki', priorytet: 2 }];
+  const zr = [{ id: 'test', priorytet: 1 }, { id: 'syn', priorytet: 3 }, { id: 'marki', priorytet: 2 }];
   const a = rek({ nazwa: 'Biblioteka', ulica: 'Polna', numer_budynku: '2', szerokosc_geograficzna: 51.1, dlugosc_geograficzna: 19.1,
     data_weryfikacji: '2025-01-10', godziny_dostepnosci: 'Mo-Fr 08:00-16:00', opis_lokalizacji: 'Hol', uwagi: 'stare' });
   const b = rek({ nazwa: 'Biblioteka Miejska', ulica: 'Polna', numer_budynku: '2', szerokosc_geograficzna: 51.10004, dlugosc_geograficzna: 19.1,
-    data_weryfikacji: '2026-05-01', godziny_dostepnosci: '24/7', licencja_rekordu: 'ODbL-1.0' });
-  b._zrodlo = 'osm'; b._kodZrodla = 'OSM-01'; b.zrodlo_danych = 'OSM-01';
+    data_weryfikacji: '2026-05-01', godziny_dostepnosci: '24/7', licencja_rekordu: 'CC-BY-4.0' });
+  b._zrodlo = 'syn'; b._kodZrodla = 'PLIK-02'; b.zrodlo_danych = 'PLIK-02';
   const c = rek({ nazwa: 'Biblioteka', ulica: 'Polna', numer_budynku: '2', szerokosc_geograficzna: 51.10002, dlugosc_geograficzna: 19.1,
-    data_weryfikacji: '2026-05-01', opis_lokalizacji: 'Hol, przy szatni', licencja_rekordu: 'CC-BY-4.0' });
+    data_weryfikacji: '2026-05-01', opis_lokalizacji: 'Hol, przy szatni', licencja_rekordu: 'CC0-1.0' });
   c._zrodlo = 'marki'; c._kodZrodla = 'DGP-03'; c.zrodlo_danych = 'DGP-03';
   const w = D.znajdz([a, b, c], { zrodla: zr });
   assert.strictEqual(w.grupy.length, 1);
@@ -366,7 +370,7 @@ test('scal: reguła wzorca – wartość z najnowszej data_weryfikacji, przy rem
   assert.strictEqual(kon.data_weryfikacji, c._id);
   assert.strictEqual(kon[D.POLE_WSPOLRZEDNE], c._id);
   assert.ok(!kon.uwagi, 'jedna wartość – bez konfliktu');
-  let s = D.scal([a, b, c], w.grupy, {}).rekordy;
+  let s = D.scal([a, b, c], w.grupy, {}, { zrodla: zr }).rekordy;
   assert.strictEqual(s.length, 1);
   let m = s[0];
   assert.strictEqual(m.id_aed, a.id_aed);
@@ -376,7 +380,7 @@ test('scal: reguła wzorca – wartość z najnowszej data_weryfikacji, przy rem
   assert.strictEqual(m.data_weryfikacji, '2026-05-01');
   assert.strictEqual(m.szerokosc_geograficzna, 51.10002);
   assert.strictEqual(m.uwagi, 'stare', 'jedyna wartość z głównego');
-  assert.strictEqual(m.licencja_rekordu, 'ODbL-1.0', 'pole z OSM -> ODbL');
+  assert.strictEqual(m.licencja_rekordu, 'CC-BY-4.0', 'pole ze źródła CC BY -> CC BY');
   // domyślny wynik scal = wartości „proponowana”
   g.konflikty.forEach(function (k) {
     const zrodlowy = [a, b, c].find(function (r) { return r._id === k.proponowana; });
@@ -388,13 +392,13 @@ test('scal: reguła wzorca – wartość z najnowszej data_weryfikacji, przy rem
   assert.ok(wk[a._id].indexOf('id_aed') >= 0 && wk[a._id].indexOf('uwagi') >= 0 && wk[a._id].indexOf('godziny_dostepnosci') < 0);
   assert.deepStrictEqual(wk[b._id], ['godziny_dostepnosci']);
   assert.ok(['nazwa', 'opis_lokalizacji', 'data_weryfikacji', 'szerokosc_geograficzna', 'dlugosc_geograficzna'].every(function (p) { return wk[c._id].indexOf(p) >= 0; }));
-  // decyzja użytkownika ma pierwszeństwo: godziny z głównego -> OSM nic nie wnosi, licencja CC BY
+  // decyzja użytkownika ma pierwszeństwo: godziny z głównego -> źródło CC BY nic nie wnosi, licencja CC0
   const dec = {}; dec[g.id] = { status: 'scal', wartosci: { godziny_dostepnosci: a._id } };
-  m = D.scal([a, b, c], w.grupy, dec).rekordy[0];
+  m = D.scal([a, b, c], w.grupy, dec, { zrodla: zr }).rekordy[0];
   assert.strictEqual(m.godziny_dostepnosci, 'Mo-Fr 08:00-16:00');
   assert.deepStrictEqual(zwykly(m._scalonoZ.find(function (x) { return x._id === b._id; }).wklad), []);
-  assert.strictEqual(m.licencja_rekordu, 'CC-BY-4.0');
-  assert.strictEqual(E.licencjaZbioru([m]).atrybucje.some(function (t) { return /OpenStreetMap/.test(t); }), false);
+  assert.strictEqual(m.licencja_rekordu, 'CC0-1.0');
+  assert.deepStrictEqual(zwykly(E.licencjaZbioru([m]).atrybucje), []);
 });
 
 // ================================================================ eksport
@@ -494,11 +498,11 @@ test('eksport: JSON i GeoJSON (FeatureCollection, [długość, szerokość])', f
 test('eksport: XLSX (SheetJS) – arkusz danych, „Źródła”, „Pochodzenie”; odczyt z powrotem', async function () {
   const zk = await zrodloDgp('krosno');
   const krosno = rekordyZ(zk);
-  const osm = zrodloOsmZKrosna(krosno);
-  const wsz = krosno.concat(rekordyZ(osm.zrodlo));
+  const syn = zrodloSyntetyczneZKrosna(krosno);
+  const wsz = krosno.concat(rekordyZ(syn.zrodlo));
   const s = D.scal(wsz, D.znajdz(wsz).grupy, {});
   const r = rekordyEksportu().concat(s.rekordy);
-  const bufor = E.xlsx(r, { zrodla: [zk, osm.zrodlo] });
+  const bufor = E.xlsx(r, { zrodla: [zk, syn.zrodlo] });
   assert.ok(bufor instanceof ctx.ArrayBuffer || bufor instanceof ArrayBuffer);
   const wb = ctx.XLSX.read(new Uint8Array(bufor), { type: 'array' });
   assert.deepStrictEqual(zwykly(wb.SheetNames), ['dane_aed', 'Źródła', 'Pochodzenie']);
@@ -516,9 +520,9 @@ test('eksport: XLSX (SheetJS) – arkusz danych, „Źródła”, „Pochodzenie
   assert.strictEqual(zr[0].kod_zrodla, 'DGP-01');
   assert.strictEqual(zr[0].zasieg_terytorialny, 'gmina miejska Krosno', 'dopasowanie do rejestru we wzorcu (DGP-3624)');
   assert.strictEqual(zr[0].liczba_rekordow, 21);
-  assert.strictEqual(zr[1].licencja, 'ODbL-1.0');
+  assert.strictEqual(zr[1].licencja, 'CC-BY-4.0');
   const poch = ctx.XLSX.utils.sheet_to_json(wb.Sheets.Pochodzenie);
-  assert.ok(poch.some(function (w) { return w.rola_w_scaleniu === 'duplikat_scalony' && w.zrodlo_danych === 'OSM-01' && /^node\//.test(w.zrodlo_id_rekordu); }));
+  assert.ok(poch.some(function (w) { return w.rola_w_scaleniu === 'duplikat_scalony' && w.zrodlo_danych === 'PLIK-02' && /^syn\//.test(w.zrodlo_id_rekordu); }));
   assert.ok(poch.every(function (w) { return RE_UUID.test(w.id_aed) || w.id_aed; }));
 });
 
@@ -625,15 +629,15 @@ test('eksport: metadane XML zgodne z otwarte_dane_latest.xsd (lxml) + walidacja 
   });
   puste.forEach(function (p) { assert.ok(typeof p.komunikat === 'string' && p.komunikat.length > 10); });
   const zle = E.walidujMetadane(Object.assign(metadanePelne(), { extIdent: 'x'.repeat(37), czestotliwosc: 'codziennie', kategorie: ['ZDROWIE'],
-    warunki: { licencja: 'ODbL 1.0' } }), [{ extIdent: 'a', url: 'http://x.pl/a.csv', tytul: 't', opis: 'o', regiony: ['1'] }]);
+    warunki: { licencja: 'GPL 3.0' } }), [{ extIdent: 'a', url: 'http://x.pl/a.csv', tytul: 't', opis: 'o', regiony: ['1'] }]);
   const kody = zle.filter(function (p) { return p.poziom === 'blad'; }).map(function (p) { return p.pole + ':' + p.kod; });
   ['extIdent:DLUGOSC', 'czestotliwosc:SLOWNIK', 'kategorie:SLOWNIK', 'warunki.licencja:SLOWNIK', 'zasoby.0.url:WZORZEC', 'zasoby.0.regiony:WZORZEC'].forEach(function (k) {
     assert.ok(kody.indexOf(k) >= 0, 'oczekiwano ' + k + ' w ' + kody.join(', '));
   });
   const bezTagu = E.walidujMetadane(Object.assign(metadanePelne(), { slowaKluczowe: ['AED'] }));
   assert.ok(bezTagu.some(function (p) { return p.poziom === 'ostrzezenie' && /wzorzec-aed/.test(p.komunikat); }));
-  const odbl = E.walidujMetadane(Object.assign(metadanePelne(), { licencja: { kod: 'ODbL-1.0' }, warunki: {} }));
-  assert.ok(odbl.some(function (p) { return p.kod === 'LICENCJA' && /ODbL/.test(p.komunikat); }));
+  const innaLic = E.walidujMetadane(Object.assign(metadanePelne(), { licencja: { kod: 'CC-BY-4.0', licencjaXml: 'CC BY 4.0' }, warunki: { licencja: 'CC0 1.0' } }));
+  assert.ok(innaLic.some(function (p) { return p.kod === 'LICENCJA' && p.poziom === 'ostrzezenie' && /CC BY 4\.0/.test(p.komunikat); }));
   // słowniki dla UI = wartości z XSD
   const xsd = czytaj('otwarte_dane_latest.xsd');
   E.SLOWNIKI_XML.czestotliwosc.concat(E.SLOWNIKI_XML.kategorie, E.SLOWNIKI_XML.licencje).forEach(function (x) {
@@ -659,11 +663,7 @@ function metadaneJakUI(rekordy, zrodlaLista, adres) {
   m.zrodla = zrodlaLista;
   m.dataAktualizacji = new Date();
   m.warunki = { zrodlo: !!(lic.atrybucje && lic.atrybucje.length) };
-  if (/odbl/i.test(lic.kod || '')) {
-    m.warunki.bazaDanych = 'Zbiór zawiera dane z OpenStreetMap udostępnione na licencji Open Database License 1.0 (ODbL), ' +
-      'https://opendatacommons.org/licenses/odbl/1-0/. Wymagane: podanie źródła „© współtwórcy OpenStreetMap” (openstreetmap.org/copyright) ' +
-      'oraz udostępnianie baz pochodnych na tej samej licencji (ODbL).';
-  } else if (lic.licencjaXml) m.warunki.licencja = lic.licencjaXml;
+  if (lic.licencjaXml) m.warunki.licencja = lic.licencjaXml;
   const baza = adres && !/\/$/.test(adres) ? adres + '/' : adres;
   const zasoby = ['csv', 'xlsx', 'json', 'geojson', 'rejestr'].map(function (kod) {
     const plik = E.nazwaPliku(kod === 'rejestr' ? 'csv' : kod, null, { przedrostek: kod === 'rejestr' ? 'aed_rejestr_zrodel' : 'aed' });
@@ -685,42 +685,43 @@ function walidujXsd(tresci) {
   return w && w.status !== 2 ? w : null;
 }
 
-test('eksport: XML i datapackage zbudowane jak w UI (wariant ODbL i CC0) – XSD i walidujMetadane', async function () {
+test('eksport: XML i datapackage zbudowane jak w UI (wariant CC BY i CC0) – XSD i walidujMetadane', async function () {
   const zk = await zrodloDgp('krosno');
   const krosno = rekordyZ(zk);
-  const osm = zrodloOsmZKrosna(krosno);
-  const wsz = krosno.concat(rekordyZ(osm.zrodlo));
+  const syn = zrodloSyntetyczneZKrosna(krosno);
+  const wsz = krosno.concat(rekordyZ(syn.zrodlo));
   const wynik = D.scal(wsz, D.znajdz(wsz).grupy, {}).rekordy;
-  const odbl = metadaneJakUI(wynik, [zk, osm.zrodlo], 'https://www.urzad.example.pl/dane/aed');
-  assert.strictEqual(odbl.lic.kod, 'ODbL-1.0');
-  assert.strictEqual(odbl.lic.licencjaXml, null);
+  const ccby = metadaneJakUI(wynik, [zk, syn.zrodlo], 'https://www.urzad.example.pl/dane/aed');
+  assert.strictEqual(ccby.lic.kod, 'CC-BY-4.0');
+  assert.strictEqual(ccby.lic.licencjaXml, 'CC BY 4.0');
+  assert.ok(ccby.lic.atrybucje.some(function (t) { return /Fundacja Przykładowa/.test(t); }));
   const tylkoGov = metadaneJakUI(krosno, [zk], 'https://www.urzad.example.pl/dane/aed/');
   assert.strictEqual(tylkoGov.lic.licencjaXml, 'CC0 1.0');
-  [odbl, tylkoGov].forEach(function (x) {
+  [ccby, tylkoGov].forEach(function (x) {
     const bl = E.walidujMetadane(x.m, x.zasoby).filter(function (p) { return p.poziom === 'blad'; });
     assert.deepStrictEqual(zwykly(bl), [], JSON.stringify(bl));
   });
   // bez adresu plików walidacja zgłasza brak URL zasobów
   const bezAdresu = metadaneJakUI(krosno, [zk], '');
   assert.ok(E.walidujMetadane(bezAdresu.m, bezAdresu.zasoby).some(function (p) { return /^zasoby\.\d+\.url$/.test(p.pole) && p.kod === 'WYMAGANE'; }));
-  const x1 = E.metadaneXml(odbl.m, odbl.zasoby), x2 = E.metadaneXml(tylkoGov.m, tylkoGov.zasoby);
-  assert.ok(/<dbOrCopyrighted>/.test(x1) && !/dbOrCopyrightedLicenseChosen/.test(x1));
+  const x1 = E.metadaneXml(ccby.m, ccby.zasoby), x2 = E.metadaneXml(tylkoGov.m, tylkoGov.zasoby);
+  assert.ok(/<dbOrCopyrightedLicenseChosen>CC BY 4.0</.test(x1));
   assert.ok(/<dbOrCopyrightedLicenseChosen>CC0 1.0</.test(x2));
   const w = walidujXsd([x1, x2]);
-  if (w) { assert.strictEqual(w.status, 0, w.stdout); statystyki.push(['XML jak w UI (ODbL, CC0)', 'ZGODNY (lxml)']); }
+  if (w) { assert.strictEqual(w.status, 0, w.stdout); statystyki.push(['XML jak w UI (CC BY, CC0)', 'ZGODNY (lxml)']); }
   else statystyki.push(['XML jak w UI', 'POMINIĘTO – brak lxml']);
   // datapackage z zasobami z UI: rejestr ma własny schemat
-  const dp = JSON.parse(E.datapackage(odbl.m, odbl.zasoby));
+  const dp = JSON.parse(E.datapackage(ccby.m, ccby.zasoby));
   const rej = dp.resources.find(function (r) { return /rejestr/.test(r.path); });
   assert.ok(rej.schema.fields.some(function (f) { return f.name === 'kod_zrodla'; }) && !rej.schema.fields.some(function (f) { return f.name === 'id_aed'; }));
   assert.strictEqual(dp.resources.find(function (r) { return r.format === 'csv' && !/rejestr/.test(r.path); }).schema.primaryKey, 'id_aed');
-  assert.strictEqual(dp.licenses[0].name, 'ODbL-1.0');
+  assert.strictEqual(dp.licenses[0].name, 'CC-BY-4.0');
 });
 
 test('duplikaty: postęp, wersja asynchroniczna, zachowanie istniejącego id_aed', async function () {
   const krosno = rekordyZ(await zrodloDgp('krosno'));
-  const osm = zrodloOsmZKrosna(krosno);
-  const wsz = krosno.concat(rekordyZ(osm.zrodlo));
+  const syn = zrodloSyntetyczneZKrosna(krosno);
+  const wsz = krosno.concat(rekordyZ(syn.zrodlo));
   const kroki = [];
   const w1 = D.znajdz(wsz, { postep: function (u) { kroki.push(u); } });
   assert.ok(kroki.length >= 4 && kroki[kroki.length - 1] === 1);
@@ -752,9 +753,10 @@ test('eksport: nazwaPliku i regiony', function () {
 // ================================================================ store
 test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia', async function () {
   const zk = await zrodloDgp('krosno');
-  const osm = zrodloOsmZKrosna(rekordyZ(zk));
+  const syn = zrodloSyntetyczneZKrosna(rekordyZ(zk));
   store.dodajZrodlo({ typ: 'DGP', nazwa: 'Krosno', licencja: 'CC0-1.0', dysponent: zk.dysponent, kolumny: zk.kolumny, wiersze: zk.wiersze, meta: zk.meta });
-  store.dodajZrodlo({ typ: 'OSM', nazwa: 'OSM', licencja: 'ODbL-1.0', kolumny: osm.zrodlo.kolumny, wiersze: osm.zrodlo.wiersze, meta: osm.zrodlo.meta });
+  store.dodajZrodlo({ typ: 'PLIK', nazwa: 'Plik syntetyczny', licencja: 'CC-BY-4.0', dysponent: syn.zrodlo.dysponent, kolumny: syn.zrodlo.kolumny,
+    wiersze: syn.zrodlo.wiersze, meta: syn.zrodlo.meta });
   assert.strictEqual(store.duplikaty, null);
   store.przelicz();
   assert.strictEqual(store.wynik.length, 42, 'bez szukania duplikatów wynik = rekordy');
@@ -810,7 +812,7 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
   store.cofnijPoprawke(idOdst);
   store.ustawOdstajacyOk(idOdst, false);
   assert.strictEqual(store.odstajaceOk.length, 0);
-  // wiele decyzji naraz + wynik bez ODbL
+  // wiele decyzji naraz + wynik tylko z rekordów CC0
   store.znajdzDuplikaty({ promienM: 30 });
   const mapa = {};
   store.duplikaty.grupy.forEach(function (g) { if (g.pewnosc === 'wysoka') mapa[g.id] = { status: 'rozdziel' }; });
@@ -822,9 +824,9 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
   Object.keys(mapa).forEach(function (k) { zero[k] = null; });
   store.ustawDecyzjeWiele(zero);
   assert.strictEqual(store.wynik.length, 42 - Object.keys(mapa).length);
-  const bezOsm = store.wynikDla(function (r) { return r.licencja_rekordu !== 'ODbL-1.0'; });
-  assert.strictEqual(bezOsm.rekordy.length, 21, 'urządzenia z Krosna zostają, bez wkładu OSM');
-  assert.ok(bezOsm.rekordy.every(function (r) { return r.licencja_rekordu === 'CC0-1.0'; }));
+  const tylkoCc0 = store.wynikDla(function (r) { return r.licencja_rekordu !== 'CC-BY-4.0'; });
+  assert.strictEqual(tylkoCc0.rekordy.length, 21, 'urządzenia z Krosna zostają, bez wkładu źródła CC BY');
+  assert.ok(tylkoCc0.rekordy.every(function (r) { return r.licencja_rekordu === 'CC0-1.0'; }));
   const kroki = [];
   const asyncW = await store.znajdzDuplikatyAsync({ promienM: 30, postep: function (u) { kroki.push(u); } });
   assert.strictEqual(asyncW, store.duplikaty);
@@ -838,9 +840,9 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
 test('duplikaty: ten sam id_aed daleko od siebie = niska; po rozdzieleniu unikalne id_aed (raport.noweId)', function () {
   const a = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 50.0, dlugosc_geograficzna: 20.0 });
   const b = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.18, dlugosc_geograficzna: 20.0, id_aed: a.id_aed });
-  b._zrodlo = 'osm'; b._kodZrodla = 'OSM-01';
-  b._surowy = { ref: a.id_aed }; // id b pochodzi ze źródła – zostaje przy b, mimo niższego priorytetu
-  const zr = [{ id: 'test', priorytet: 1 }, { id: 'osm', priorytet: 3 }];
+  b._zrodlo = 'syn'; b._kodZrodla = 'PLIK-02';
+  b._surowy = { id_aed: a.id_aed }; // id b pochodzi ze źródła – zostaje przy b, mimo niższego priorytetu
+  const zr = [{ id: 'test', priorytet: 1 }, { id: 'syn', priorytet: 3 }];
   const w = D.znajdz([a, b], { zrodla: zr });
   assert.strictEqual(w.grupy.length, 1);
   assert.strictEqual(w.grupy[0].pewnosc, 'niska');
@@ -852,19 +854,19 @@ test('duplikaty: ten sam id_aed daleko od siebie = niska; po rozdzieleniu unikal
   assert.strictEqual(z.rekordId, a._id, 'nowy id dostaje rekord, którego id nie pochodzi ze źródła');
   assert.strictEqual(z.stare, a.id_aed);
   assert.ok(RE_UUID.test(z.nowe) && z.nowe.charAt(14) === '4');
-  assert.ok(/OSM-01 wiersz/.test(z.powod));
+  assert.ok(/PLIK-02 wiersz/.test(z.powod));
   assert.notStrictEqual(s.rekordy[0].id_aed, s.rekordy[1].id_aed);
   assert.strictEqual(a.id_aed, b.id_aed, 'rekordy wejściowe bez zmian');
   assert.strictEqual(D.scal([a, b], w.grupy, {}, { zrodla: zr }).raport.noweId[0].nowe, z.nowe, 'ten sam nowy id przy ponownym przeliczeniu');
   // bliskie rekordy z tym samym id – wysoka; decyzja „rozdziel” -> nowy id dla rekordu o niższym priorytecie
   const c = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 50.00005, dlugosc_geograficzna: 20.0, id_aed: a.id_aed });
-  c._zrodlo = 'osm'; c._kodZrodla = 'OSM-01';
+  c._zrodlo = 'syn'; c._kodZrodla = 'PLIK-02';
   const w2 = D.znajdz([a, c], { zrodla: zr });
   assert.strictEqual(w2.grupy[0].pewnosc, 'wysoka');
   const dec = {}; dec[w2.grupy[0].id] = { status: 'rozdziel' };
   const s2 = D.scal([a, c], w2.grupy, dec, { zrodla: zr });
   assert.strictEqual(s2.raport.noweId.length, 1);
-  assert.strictEqual(s2.raport.noweId[0].rekordId, c._id, 'niższy priorytet (OSM) dostaje nowy id');
+  assert.strictEqual(s2.raport.noweId[0].rekordId, c._id, 'niższy priorytet (drugie źródło) dostaje nowy id');
   // scalony rekord: data aktualizacji = teraz
   const s3 = D.scal([a, c], w2.grupy, {}, { zrodla: zr, teraz: '2026-11-21T12:34:56' });
   assert.strictEqual(s3.rekordy[0].data_aktualizacji_rekordu, '2026-11-21T12:34:56');
@@ -956,11 +958,11 @@ test('wydajność: 50 000 rekordów – znajdz < 3 s', function () {
   for (let i = 0; i < 5000; i++) {
     const r = lista[Math.floor(los() * baza)];
     const p = przesun(r.szerokosc_geograficzna, r.dlugosc_geograficzna, 3 + los() * 30, los() * 360);
-    lista.push({ _id: 'osm:' + i, _zrodlo: 'osm', _kodZrodla: 'OSM-01', id_aed: 'osm-' + i, nazwa: r.nazwa, ulica: r.ulica, numer_budynku: r.numer_budynku,
-      miejscowosc: r.miejscowosc, szerokosc_geograficzna: p.lat, dlugosc_geograficzna: p.lon, licencja_rekordu: 'ODbL-1.0' });
+    lista.push({ _id: 'syn:' + i, _zrodlo: 'syn', _kodZrodla: 'PLIK-99', id_aed: 'syn-' + i, nazwa: r.nazwa, ulica: r.ulica, numer_budynku: r.numer_budynku,
+      miejscowosc: r.miejscowosc, szerokosc_geograficzna: p.lat, dlugosc_geograficzna: p.lon, licencja_rekordu: 'CC-BY-4.0' });
   }
   const t0 = Date.now();
-  const w = D.znajdz(lista, { zrodla: [{ id: 'osm', priorytet: 3 }] });
+  const w = D.znajdz(lista, { zrodla: [{ id: 'syn', priorytet: 3 }] });
   const czas = Date.now() - t0;
   const t1 = Date.now();
   const s = D.scal(lista, w.grupy, {});

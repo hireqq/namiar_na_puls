@@ -18,10 +18,10 @@
   // pola, w których różnice nie są konfliktem (wynikają ze scalenia albo są techniczne)
   const BEZ_KONFLIKTU = { id_aed: 1, zrodlo_danych: 1, zrodlo_id_rekordu: 1, licencja_rekordu: 1, data_aktualizacji_rekordu: 1,
     szerokosc_geograficzna: 1, dlugosc_geograficzna: 1 };
-  const PRIORYTET_TYPU = { PLIK: 1, DGP: 1, FORMULARZ: 2, OSM: 3 };
+  const PRIORYTET_TYPU = { PLIK: 1, DGP: 1, FORMULARZ: 2 };
   const POZIOM = { niska: 0, srednia: 1, wysoka: 2 };
   const NAZWA_POZIOMU = ['niska', 'srednia', 'wysoka'];
-  const LICENCJA_RANGA = { 'CC0-1.0': 0, 'CC-BY-4.0': 1, 'ODbL-1.0': 2 };
+  const LICENCJA_RANGA = { 'CC0-1.0': 0, 'CC-BY-4.0': 1 };
   const MAKS_GRUPA = 12; // większa grupa to raczej „łańcuch” w gęstej zabudowie – do ręcznego przeglądu
   const MAKS_KUBELEK = 10; // tyle rekordów z tym samym id_aed / dysponentem+id_lokalne = identyfikator nie odróżnia urządzeń
   const TE_SAME_M = 0.5;   // „identyczne” współrzędne (m)

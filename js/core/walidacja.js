@@ -131,7 +131,7 @@
   }
   function podpowiedzWymagane(pole, r) {
     if (pole === 'sposob_dostepu') return 'nieznany';
-    if (pole === 'status') return r._kodZrodla && /^OSM/.test(r._kodZrodla) ? 'do_weryfikacji' : 'aktywny';
+    if (pole === 'status') return 'aktywny';
     if (pole === 'lokalizacja_przyblizona') return false;
     if (pole === 'dostepnosc' && r.godziny_dostepnosci) return r.godziny_dostepnosci === '24/7' ? 'publiczna_24_7' : 'publiczna_w_godzinach';
     if (pole === 'nazwa' && typeof r.opis_lokalizacji === 'string' && r.opis_lokalizacji) return r.opis_lokalizacji.slice(0, 150);
@@ -151,7 +151,9 @@
   // ------------------------------------------------ obowiązkowość warunkowa (W)
   function regulyWarunkowe(r, dodaj) {
     if (!pusta(r.ulica) && pusta(r.cecha_ulicy)) {
-      dodaj('cecha_ulicy', 'ostrzezenie', 'WYMAGANE', 'Podano ulicę ' + pokaz(r.ulica) + ', ale brak cechy ulicy (ul., al., pl. …). Uzupełnij zgodnie z TERYT ULIC.', 'ul.');
+      const inne = /^(rynek|park|szosa|droga|trakt|wybrzeże|wyspa|ogród|ogrody|zaułek|pasaż|ścieżka|wał)\b/i.test(String(r.ulica).trim());
+      dodaj('cecha_ulicy', 'ostrzezenie', 'WYMAGANE', 'Podano ulicę ' + pokaz(r.ulica) + ', ale brak cechy ulicy (ul., al., pl. …). Uzupełnij zgodnie z TERYT ULIC' +
+        (inne ? ' – dla nazw typu „Rynek”, „Park …” w TERYT jest osobna cecha, we wzorcu „inne”.' : '.'), inne ? 'inne' : 'ul.');
     }
     if (!pusta(r.numer_budynku) && pusta(r.ulica)) {
       dodaj('ulica', 'ostrzezenie', 'WYMAGANE', 'Podano numer budynku ' + pokaz(r.numer_budynku) + ' bez nazwy ulicy. Jeśli ' +
@@ -175,7 +177,7 @@
     // godziny – składnia opening_hours
     if (typeof r.godziny_dostepnosci === 'string' && r.godziny_dostepnosci && !N.poprawneGodziny(r.godziny_dostepnosci)) {
       dodaj('godziny_dostepnosci', 'ostrzezenie', 'WZORZEC', 'Godziny ' + pokaz(r.godziny_dostepnosci) +
-        ' nie są w formacie OpenStreetMap opening_hours (np. „Mo-Fr 07:00-17:00; Sa 08:00-14:00” lub „24/7”).', N.godziny(r.godziny_dostepnosci) || undefined);
+        ' nie są w formacie opening_hours (np. „Mo-Fr 07:00-17:00; Sa 08:00-14:00” lub „24/7”).', N.godziny(r.godziny_dostepnosci) || undefined);
     }
     if (r.dostepnosc === 'publiczna_24_7' && typeof r.godziny_dostepnosci === 'string' && r.godziny_dostepnosci && r.godziny_dostepnosci !== '24/7') {
       dodaj('godziny_dostepnosci', 'ostrzezenie', 'NIESPOJNY', 'Dostępność „publiczna 24/7”, ale godziny to ' + pokaz(r.godziny_dostepnosci) + '. Popraw godziny albo dostępność.', '24/7');
@@ -184,13 +186,9 @@
     if (r.lokalizacja_przyblizona === false && r.zrodlo_wspolrzednych === 'geokodowanie_adresu') {
       dodaj('lokalizacja_przyblizona', 'ostrzezenie', 'NIESPOJNY', 'Współrzędne z geokodowania adresu wskazują budynek, a nie miejsce urządzenia – ustaw „lokalizacja przybliżona” na tak.', true);
     }
-    if (r.lokalizacja_przyblizona === true && (r.zrodlo_wspolrzednych === 'pomiar_gps' || r.zrodlo_wspolrzednych === 'osm')) {
-      dodaj('lokalizacja_przyblizona', 'ostrzezenie', 'NIESPOJNY', 'Współrzędne z ' + (r.zrodlo_wspolrzednych === 'osm' ? 'OpenStreetMap' : 'pomiaru GPS') +
+    if (r.lokalizacja_przyblizona === true && r.zrodlo_wspolrzednych === 'pomiar_gps') {
+      dodaj('lokalizacja_przyblizona', 'ostrzezenie', 'NIESPOJNY', 'Współrzędne z pomiaru GPS' +
         ' zwykle wskazują miejsce urządzenia, a rekord ma „lokalizacja przybliżona” = tak. Sprawdź.', false);
-    }
-    // licencja OSM
-    if (r.zrodlo_wspolrzednych === 'osm' && typeof r.licencja_rekordu === 'string' && r.licencja_rekordu && r.licencja_rekordu !== 'ODbL-1.0') {
-      dodaj('licencja_rekordu', 'ostrzezenie', 'NIESPOJNY', 'Współrzędne pochodzą z OpenStreetMap, więc rekord podlega licencji ODbL 1.0, a nie ' + r.licencja_rekordu + '.', 'ODbL-1.0');
     }
     // województwo a kod TERC
     if (typeof r.kod_terc_gminy === 'string' && /^\d{7}$/.test(r.kod_terc_gminy) && typeof r.wojewodztwo === 'string' && N.kodWojewodztwa(r.wojewodztwo)) {

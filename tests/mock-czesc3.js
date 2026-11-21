@@ -49,7 +49,7 @@
   // ------------------------------------------------------------ mapowanie
   const SYNONIMY = {
     nazwa: ['nazwa', 'name', 'miejsce'],
-    id_lokalne: ['numer id', 'id', 'lp', 'osm id'],
+    id_lokalne: ['numer id', 'id', 'lp'],
     szerokosc_geograficzna: ['szerokosc geograficzna', 'szer', 'lat', 'latitude'],
     dlugosc_geograficzna: ['dlugosc geograficzna', 'dl', 'lon', 'lng', 'longitude'],
     miejscowosc: ['miejscowosc', 'city', 'miasto'],

@@ -1,5 +1,5 @@
 /* Ekran „Krok 1: Źródła danych” – wgrywanie plików, rejestr źródeł, podgląd.
-   Źródła zdalne (OpenStreetMap, dane.gov.pl) dodaje js/ui/zdalne.js – nie mają meta.plik,
+   Źródła zdalne (dane.gov.pl) dodaje js/ui/zdalne.js – nie mają meta.plik,
    za to mają meta.url, meta.dataDanych, meta.zapytanie, meta.atrybucja. */
 (function (AED) {
   'use strict';
@@ -89,7 +89,7 @@
       }));
     const otwarty = podgladId === z.id;
     const format = [z.meta.format, z.meta.plik ? rozmiar(z.meta.plik.rozmiar) : null,
-      !z.meta.plik && z.meta.dataDanych ? 'dane z ' + data(z.meta.dataDanych, z.typ === 'OSM') : null].filter(Boolean).join(', ');
+      !z.meta.plik && z.meta.dataDanych ? 'dane z ' + data(z.meta.dataDanych) : null].filter(Boolean).join(', ');
 
     return h('tr', null,
       h('th', { scope: 'row' }, h('code', null, z.kod)),
@@ -183,13 +183,10 @@
       zdalne && m.url ? ['Adres danych', linkZewn(m.url, m.url, { class: 'url' })] : null,
       z.dysponent ? ['Dysponent', z.dysponent] : null,
       ['Format', m.format || '—'],
-      // OSM: stan bazy z dokładnością do minut (osm3s.timestamp_osm_base)
-      zdalne ? ['Data danych', data(m.dataDanych, z.typ === 'OSM')] : null,
+      zdalne ? ['Data danych', data(m.dataDanych)] : null,
       zdalne ? ['Pobrano', data(z.dataPobrania)] : null,
       m.licencjaSugerowana ? ['Licencja wg źródła', m.licencjaSugerowana] : null,
-      m.atrybucja ? ['Atrybucja', z.typ === 'OSM'
-        ? [m.atrybucja, ' (', linkZewn('https://www.openstreetmap.org/copyright', 'zasady OpenStreetMap'), ')']
-        : m.atrybucja] : null,
+      m.atrybucja ? ['Atrybucja', m.atrybucja] : null,
       m.kodowanie ? ['Kodowanie', m.kodowanie] : null,
       m.separator ? ['Separator', m.separator] : null,
       m.wierszNaglowka ? ['Wiersz nagłówka', String(m.wierszNaglowka)] : null,

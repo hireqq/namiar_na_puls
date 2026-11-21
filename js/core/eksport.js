@@ -13,10 +13,8 @@
   const WSP = { szerokosc_geograficzna: 1, dlugosc_geograficzna: 1 };
   const LICENCJE = {
     'CC0-1.0': { nazwa: 'CC0 1.0 (domena publiczna)', xml: 'CC0 1.0', url: 'https://creativecommons.org/publicdomain/zero/1.0/legalcode.pl', ranga: 0 },
-    'CC-BY-4.0': { nazwa: 'CC BY 4.0 (uznanie autorstwa)', xml: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/legalcode.pl', ranga: 1 },
-    'ODbL-1.0': { nazwa: 'Open Database License 1.0 (ODbL)', xml: null, url: 'https://opendatacommons.org/licenses/odbl/1-0/', ranga: 2 }
+    'CC-BY-4.0': { nazwa: 'CC BY 4.0 (uznanie autorstwa)', xml: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/legalcode.pl', ranga: 1 }
   };
-  const ATRYBUCJA_OSM = '© współtwórcy OpenStreetMap (OpenStreetMap contributors), licencja ODbL 1.0 – openstreetmap.org/copyright';
 
   // Słowniki z otwarte_dane_latest.xsd (harvester dane.gov.pl, wersja 1.13) – do list wyboru w UI
   const SLOWNIKI_XML = {
@@ -193,7 +191,7 @@
       const meta = z.meta || {};
       const nrZbioru = meta.zbior && meta.zbior.id;
       const w = wzor.find(function (x) {
-        return (nrZbioru && x.kod_zrodla === 'DGP-' + nrZbioru) || x.kod_zrodla === z.kod || (z.typ === 'OSM' && x.kod_zrodla === 'OSM');
+        return (nrZbioru && x.kod_zrodla === 'DGP-' + nrZbioru) || x.kod_zrodla === z.kod || (z.typ === 'FORMULARZ' && x.kod_zrodla === 'FORMULARZ');
       }) || {};
       const rek = (wg.get(z.id) || []).concat(wg.get(z.kod) && z.kod !== z.id ? wg.get(z.kod) : []);
       const dostepne = [], braki = [];
@@ -280,13 +278,13 @@
 
   // ---------------------------------------------------------------- licencja
   /**
-   * Licencja zbioru wynikowego: najbardziej restrykcyjna z licencji rekordów (ODbL > CC BY > CC0).
+   * Licencja zbioru wynikowego: najbardziej restrykcyjna z licencji rekordów (CC BY > CC0).
    * @param {Object[]} rekordy
    * @param {Object[]} [zrodla] – do atrybucji (nazwa, dysponent, url); domyślnie AED.store.zrodla
    * @returns {{kod:string, nazwa:string, url:string, uzasadnienie:string, atrybucje:string[], liczby:Object<string,number>}}
    */
   function licencjaZbioru(rekordy, zrodla) {
-    const liczby = { 'CC0-1.0': 0, 'CC-BY-4.0': 0, 'ODbL-1.0': 0, brak: 0 };
+    const liczby = { 'CC0-1.0': 0, 'CC-BY-4.0': 0, brak: 0 };
     const zrodlaLic = {}; // kod źródła -> licencja (z rekordów)
     (rekordy || []).forEach(function (r) {
       const l = LICENCJE[r.licencja_rekordu] ? r.licencja_rekordu : 'brak';
@@ -299,11 +297,9 @@
     });
     const n = (rekordy || []).length;
     let kod = 'CC0-1.0';
-    if (liczby['ODbL-1.0']) kod = 'ODbL-1.0';
-    else if (liczby['CC-BY-4.0']) kod = 'CC-BY-4.0';
+    if (liczby['CC-BY-4.0']) kod = 'CC-BY-4.0';
     const zr = zrodla || (AED.store ? AED.store.zrodla : []);
     const atrybucje = [];
-    if (liczby['ODbL-1.0']) atrybucje.push(ATRYBUCJA_OSM);
     Object.keys(zrodlaLic).sort().forEach(function (k) {
       if (zrodlaLic[k] !== 'CC-BY-4.0') return;
       const z = zr.find(function (x) { return x.kod === k; }) || {};
@@ -312,11 +308,7 @@
       atrybucje.push((z.dysponent || 'Dysponent') + ' – „' + (z.nazwa || k) + '”' + (url ? ' (' + url + ')' : '') + ', licencja CC BY 4.0');
     });
     let uz;
-    if (kod === 'ODbL-1.0') {
-      uz = liczby['ODbL-1.0'] + ' z ' + n + ' rekordów pochodzi z OpenStreetMap (ODbL 1.0). ODbL wymaga udostępnienia bazy pochodnej na tej samej licencji ' +
-        '(share-alike) i podania atrybucji. Jeśli zbiór ma być na CC0/CC BY, opublikuj rekordy z OSM jako osobny zasób albo ich nie dołączaj. ' +
-        'Uwaga: lista licencji harvestera dane.gov.pl nie zawiera ODbL – warunki opisz w polu „dbOrCopyrighted”.';
-    } else if (kod === 'CC-BY-4.0') {
+    if (kod === 'CC-BY-4.0') {
       uz = liczby['CC-BY-4.0'] + ' z ' + n + ' rekordów ma licencję CC BY 4.0 – zbiór musi zachować uznanie autorstwa tych źródeł (lista atrybucji poniżej).';
     } else {
       uz = 'Wszystkie rekordy z określoną licencją są na CC0 1.0 – zbiór można udostępnić jako domenę publiczną.';
@@ -536,13 +528,9 @@
     const wa = m.warunki || {};
     ['odpowiedzialnosc', 'bazaDanych', 'daneOsobowe'].forEach(function (k) { tekst('warunki.' + k, wa[k], k, 0, 4000, false); });
     if (!pusta(wa.licencja) && KODY_XML.licencje.indexOf(wa.licencja) < 0) {
-      dodaj('warunki.licencja', 'blad', 'SLOWNIK', 'Licencja „' + wa.licencja + '” nie występuje na liście dane.gov.pl. ODbL opisz w polu „warunki korzystania z bazy danych”.');
+      dodaj('warunki.licencja', 'blad', 'SLOWNIK', 'Licencja „' + wa.licencja + '” nie występuje na liście dane.gov.pl.');
     }
-    if (m.licencja && m.licencja.kod === 'ODbL-1.0' && pusta(wa.bazaDanych)) {
-      dodaj('warunki.bazaDanych', 'ostrzezenie', 'LICENCJA', 'Zbiór zawiera dane OpenStreetMap (ODbL), a portal nie ma ODbL na liście licencji. ' +
-        'Opisz warunki ODbL i atrybucję w polu „warunki korzystania z bazy danych” albo wydziel dane OSM do osobnego zasobu.');
-    }
-    if (m.licencja && m.licencja.licencjaXml && !pusta(wa.licencja) && wa.licencja !== m.licencja.licencjaXml && m.licencja.kod !== 'ODbL-1.0') {
+    if (m.licencja && m.licencja.licencjaXml && !pusta(wa.licencja) && wa.licencja !== m.licencja.licencjaXml) {
       dodaj('warunki.licencja', 'ostrzezenie', 'LICENCJA', 'Wybrana licencja „' + wa.licencja + '” różni się od wynikającej z rekordów („' + m.licencja.licencjaXml + '”).');
     }
     if (pusta(m.opisEn) || pusta(m.tytulEn)) dodaj('tytulEn', 'ostrzezenie', 'ZALECANE', 'Warto podać tytuł i opis po angielsku – zbiór będzie widoczny w Europejskim Portalu Danych.');
@@ -598,7 +586,6 @@
   AED.eksport = {
     SLOWNIKI_XML: SLOWNIKI_XML,
     LICENCJE: LICENCJE,
-    ATRYBUCJA_OSM: ATRYBUCJA_OSM,
     kolumny: kolumny,
     csv: csv,
     json: json,

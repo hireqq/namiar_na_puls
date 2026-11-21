@@ -40,7 +40,6 @@
 
   const st = {
     pominBledy: false,
-    pominOdbl: false,
     wynik: null,          // {rekordy, raport} ze store
     brudne: true,         // wynik do przeliczenia (zmiana decyzji, rekordów, opcji)
     bledne: new Set(),    // _id rekordów wynikowych z błędami
@@ -50,8 +49,10 @@
     problemy: [],
     sprawdzono: false,
     pobrane: {},          // kod -> {nazwa, rozmiar}
-    bledyPobrania: {}
+    bledyPobrania: {},
+    kolorWg: 'status'     // kolor punktów na mapie: 'status' albo 'zrodlo'
   };
+  const mapaWyn = { obiekt: null, warstwa: null, dopasowano: false };
 
   function $(id) { return document.getElementById(id); }
   function E() { return AED.eksport || null; }
@@ -86,10 +87,8 @@
   }
 
   // ------------------------------------------------------------ wynik i opcje
-  /** Wynik scalenia (leniwy w magazynie). Bez OSM: scalanie od nowa tylko z rekordów spoza ODbL – urządzenie,
-      któremu OSM dopisał jedno pole, zostaje (z wartościami z pozostałych źródeł). Stanu magazynu nie zmienia. */
+  /** Wynik scalenia (leniwy w magazynie). */
   function bazowy() {
-    if (st.pominOdbl && store.wynikDla) return store.wynikDla(function (r) { return r.licencja_rekordu !== 'ODbL-1.0'; });
     const x = store.wynik;
     if (Array.isArray(x)) return { rekordy: x, raport: store.raportScalenia || null };
     if (x && x.rekordy) return x;
@@ -118,21 +117,17 @@
     st.wynik = bazowy();
     st.bledne = policzBledne(st.wynik);
     st.brudne = false;
+    mapaWyn.dopasowano = false;
     filtruj();
   }
   function filtruj() {
     st.eksport = (st.wynik ? st.wynik.rekordy : []).filter(function (r) {
-      if (st.pominOdbl && r.licencja_rekordu === 'ODbL-1.0') return false; // zapas, gdy magazyn nie ma wynikDla
       return !(st.pominBledy && st.bledne.has(r._id));
     });
   }
   function licencja() {
     if (!E() || !E().licencjaZbioru) return {};
     try { return E().licencjaZbioru(st.eksport, store.zrodla) || {}; } catch (e) { console.error(e); return {}; }
-  }
-  function maOdbl() {
-    if (st.pominOdbl) return true; // opcja włączona – pokazujemy ją dalej, żeby dało się ją wyłączyć
-    return !!(st.wynik && st.wynik.rekordy.some(function (r) { return r.licencja_rekordu === 'ODbL-1.0'; }));
   }
 
   /** Obszar zbioru do tytułu: jedna miejscowość, kilka miejscowości albo województwo. */
@@ -173,9 +168,6 @@
       czestotliwosc: 'monthly',
       kategorie: ['HEAL'],
       slowaKluczowe: ['AED', 'defibrylator', 'pierwsza pomoc', 'ratownictwo', 'zdrowie', 'wzorzec-aed'],
-      warunkiBazaDanych: 'Zbiór zawiera dane z OpenStreetMap udostępnione na licencji Open Database License 1.0 (ODbL), ' +
-        'https://opendatacommons.org/licenses/odbl/1-0/. Wymagane: podanie źródła „© współtwórcy OpenStreetMap” ' +
-        '(openstreetmap.org/copyright) oraz udostępnianie baz pochodnych na tej samej licencji (ODbL).',
       extIdent: identyfikator(ob),
       url: '',
       adresZasobow: ''
@@ -241,12 +233,7 @@
         h('input', { type: 'checkbox', id: 'wyn-pomin-bledy', checked: st.pominBledy, 'aria-describedby': 'wyn-pomin-bledy-pomoc',
           onchange: function (e) { st.pominBledy = e.target.checked; poZmianieOpcji(e.target.id, e.target.checked ? 'Rekordy z błędami zostaną pominięte.' : 'Rekordy z błędami zostaną dołączone.'); } }),
         h('label', { for: 'wyn-pomin-bledy' }, 'Pomiń rekordy z błędami w eksporcie')),
-      h('p', { class: 'hint', id: 'wyn-pomin-bledy-pomoc' }, 'Domyślnie dołączamy wszystkie rekordy. Rekordy z błędami mogą nie spełniać wzorca, ale ich pominięcie oznacza, że tych urządzeń nie będzie w zbiorze.'),
-      maOdbl() ? [h('div', { class: 'radio' },
-        h('input', { type: 'checkbox', id: 'wyn-pomin-odbl', checked: st.pominOdbl, 'aria-describedby': 'wyn-pomin-odbl-pomoc',
-          onchange: function (e) { st.pominOdbl = e.target.checked; przelicz(); poZmianieOpcji(e.target.id, e.target.checked ? 'Rekordy z OpenStreetMap zostaną pominięte.' : 'Rekordy z OpenStreetMap zostaną dołączone.'); } }),
-        h('label', { for: 'wyn-pomin-odbl' }, 'Pomiń rekordy z OpenStreetMap (licencja ODbL)')),
-      h('p', { class: 'hint', id: 'wyn-pomin-odbl-pomoc' }, 'Wtedy zbiór nie podlega warunkowi „na tych samych warunkach” licencji ODbL. Szczegóły w sekcji „Licencja zbioru”.')] : null);
+      h('p', { class: 'hint', id: 'wyn-pomin-bledy-pomoc' }, 'Domyślnie dołączamy wszystkie rekordy. Rekordy z błędami mogą nie spełniać wzorca, ale ich pominięcie oznacza, że tych urządzeń nie będzie w zbiorze.'));
     kont.appendChild(opcje);
     const bledneWEksporcie = st.eksport.filter(function (r) { return st.bledne.has(r._id); }).length;
     if (bledneWEksporcie) {
@@ -260,7 +247,7 @@
   function poZmianieOpcji(idPola, komunikat) {
     filtruj();
     aktualizujDomyslne();
-    renderujPodsumowanie(); renderujLicencje(); renderujPliki(); renderujPodglad();
+    renderujPodsumowanie(); renderujMape(); renderujLicencje(); renderujPliki(); renderujPodglad();
     odswiezPolaMetadanych();
     const el = $(idPola); if (el) el.focus();
     oglos(komunikat + ' W eksporcie: ' + liczba(st.eksport.length) + ' ' + odmiana(st.eksport.length, 'rekord', 'rekordy', 'rekordów') + '.');
@@ -280,23 +267,7 @@
       h('dt', null, 'Wymagane atrybucje'), h('dd', null, atr.length
         ? h('ul', { class: 'wyn-atrybucje' }, atr.map(function (a) { return h('li', null, typeof a === 'string' ? a : (a.tekst || a.nazwa || JSON.stringify(a))); }))
         : 'Brak – nie trzeba podawać źródła (ale to dobra praktyka).')));
-    if (/odbl/i.test(kod)) {
-      kont.appendChild(h('div', { class: 'panel' },
-        h('h3', null, 'Co oznacza licencja ODbL – w skrócie'),
-        h('ul', null,
-          h('li', null, 'Każdy może używać, kopiować i zmieniać te dane, także w celach komercyjnych.'),
-          h('li', null, 'Trzeba podać źródło: „© współtwórcy OpenStreetMap” (ang. „© OpenStreetMap contributors”).'),
-          h('li', null, h('strong', null, 'Na tych samych warunkach (share-alike): '), 'kto udostępnia bazę danych zbudowaną z tych danych ' +
-            '(np. ten scalony zbiór), musi ją udostępnić także na licencji ODbL. Nie można jej „zamknąć” ani przenieść na licencję z mniejszymi wymaganiami.')),
-        h('h3', null, 'ODbL a portal dane.gov.pl'),
-        h('p', null, 'Lista licencji w portalu (wg schematu XML harvestera) obejmuje licencje Creative Commons ' +
-          '(m.in. CC0 1.0, CC BY 4.0, CC BY-SA 4.0), ale nie ma na niej ODbL. Masz trzy możliwości:'),
-        h('ul', null,
-          h('li', null, 'opisać warunki ODbL tekstem w polu „Warunki korzystania z bazy danych” (w formularzu metadanych niżej – przygotowaliśmy gotowy tekst),'),
-          h('li', null, 'opublikować dane z OpenStreetMap jako osobny zasób, a resztę zbioru na licencji z listy,'),
-          h('li', null, 'pominąć rekordy z OpenStreetMap (opcja „Co trafi do plików” powyżej).')),
-        h('p', null, 'W razie wątpliwości skonsultuj sposób publikacji z administratorem portalu lub prawnikiem urzędu.')));
-    } else if (/by/i.test(kod)) {
+    if (/by/i.test(kod)) {
       kont.appendChild(h('p', { class: 'note' }, 'CC BY 4.0: każdy może używać danych, także komercyjnie, pod warunkiem podania źródła (atrybucji). ' +
         'Atrybucje wymienione wyżej wpisz w opisie zbioru.'));
     } else if (/cc0/i.test(kod)) {
@@ -314,8 +285,6 @@
     { klucz: 'kategorie', etykieta: 'Kategorie', wymagane: true, typ: 'checkbox', pomoc: 'Dla AED zwykle „Zdrowie”.' },
     { klucz: 'slowaKluczowe', etykieta: 'Słowa kluczowe', wymagane: true, typ: 'text', pomoc: 'Oddziel przecinkami.' },
     { klucz: 'extIdent', etykieta: 'Identyfikator zbioru w Twoim systemie', wymagane: true, typ: 'text', pomoc: 'Do 36 znaków. Nie zmieniaj go przy kolejnych aktualizacjach.' },
-    { klucz: 'warunkiBazaDanych', etykieta: 'Warunki korzystania z bazy danych (licencja ODbL)', typ: 'textarea', tylkoOdbl: true,
-      pomoc: 'Lista licencji portalu nie zawiera ODbL, dlatego warunki ODbL opisujemy tekstem. Trafią do pola „dbOrCopyrighted” w pliku XML.' },
     { klucz: 'url', etykieta: 'Adres strony zbioru (opcjonalnie)', typ: 'url', pomoc: 'Np. strona BIP lub serwisu urzędu, na której opisano zbiór.' },
     { klucz: 'adresZasobow', etykieta: 'Adres, pod którym opublikujesz pliki (tylko dla harvestera)', typ: 'url',
       pomoc: 'Katalog na serwerze urzędu, np. https://www.urzad.example.pl/dane/aed/. Musi zaczynać się od https://. Na tej podstawie powstaną adresy plików w metadanych XML.' }
@@ -333,9 +302,8 @@
     m.zrodla = store.zrodla;
     m.dataAktualizacji = new Date();
     m.warunki = { zrodlo: !!(lic.atrybucje && lic.atrybucje.length) };
-    if (/odbl/i.test(lic.kod || '')) m.warunki.bazaDanych = m.warunkiBazaDanych;
-    else if (lic.licencjaXml) m.warunki.licencja = lic.licencjaXml;
-    delete m.warunkiBazaDanych; delete m.adresZasobow;
+    if (lic.licencjaXml) m.warunki.licencja = lic.licencjaXml;
+    delete m.adresZasobow;
     return m;
   }
   /** Pole formularza, przy którym pokazać problem z walidujMetadane. */
@@ -343,7 +311,6 @@
     pole = String(pole || '');
     if (ETYKIETA[pole]) return pole;
     if (/^zasoby\.\d+\.url$/.test(pole) || pole === 'zasoby') return 'adresZasobow';
-    if (pole === 'warunki.bazaDanych') return 'warunkiBazaDanych';
     return null;
   }
 
@@ -368,7 +335,6 @@
   }
 
   function poleFormularza(p) {
-    if (p.tylkoOdbl && !/odbl/i.test(licencja().kod || '')) return null;
     const id = idPola(p.klucz);
     const opis = [p.pomoc ? id + '-pomoc' : null, id + '-blad'].filter(Boolean).join(' ');
     const etykieta = [p.etykieta, p.wymagane ? h('span', { class: 'wymagane', 'aria-hidden': 'true' }, ' *') : null];
@@ -560,7 +526,7 @@
   }
 
   function generujIPobierz(def, nazwa, kontId, przycisk) {
-    const odblokuj = function () { if (przycisk) { przycisk.removeAttribute('aria-disabled'); przycisk.classList.remove('is-busy'); } };
+    const zwolnijPrzycisk = function () { if (przycisk) { przycisk.removeAttribute('aria-disabled'); przycisk.classList.remove('is-busy'); } };
     try {
       const dane = tresc(def.kod);
       const n = pobierz(nazwa, dane, def.typ);
@@ -568,9 +534,9 @@
       const el = $(kontId);
       if (el) { el.hidden = false; el.textContent = 'Pobrano plik ' + nazwa + ' (' + rozmiar(n) + ').'; }
       oglos('Pobrano plik ' + nazwa + ', ' + rozmiar(n) + '.');
-      odblokuj();
+      zwolnijPrzycisk();
     } catch (err) {
-      odblokuj();
+      zwolnijPrzycisk();
       console.error(err);
       st.bledyPobrania[def.kod] = 'Nie udało się przygotować pliku: ' + (err && err.message ? err.message : err);
       renderujPliki();
@@ -622,6 +588,67 @@
     kont.appendChild(tabelaPrzewijana('Podgląd pliku CSV', tabela));
   }
 
+  // ------------------------------------------------------------ mapa
+  /** Mapa rekordów z eksportu. Tekstowa alternatywa: legenda z liczbami, podgląd CSV i pliki do pobrania. */
+  function renderujMape() {
+    const kont = $('wyn-mapa');
+    const M = AED.ui.mapa;
+    if (!kont || !M) return;
+    if (!mapaWyn.obiekt) {
+      kont.textContent = '';
+      const wybor = h('div', { class: 'field mapa__kolor' },
+        h('label', { for: 'wyn-mapa-kolor' }, 'Koloruj punkty według'),
+        h('select', { id: 'wyn-mapa-kolor', onchange: function (e) {
+          st.kolorWg = e.target.value; renderujMape();
+          oglos('Kolory punktów według ' + (st.kolorWg === 'zrodlo' ? 'źródła' : 'statusu') + '. Legenda pod mapą.');
+        } }, h('option', { value: 'status' }, 'statusu urządzenia'), h('option', { value: 'zrodlo' }, 'źródła danych')));
+      mapaWyn.obiekt = M.utworz({ etykieta: 'Mapa punktów zbioru wynikowego',
+        opisDodatkowy: 'Kliknięcie punktu pokazuje jego nazwę, adres i źródło. Te same dane są w podglądzie i plikach do pobrania poniżej.' });
+      kont.append(wybor, mapaWyn.obiekt.element, h('div', { id: 'wyn-mapa-legenda', class: 'mapa-legenda' }));
+      setTimeout(function () { mapaWyn.obiekt.odswiez(); }, 0);
+    }
+    const ob = mapaWyn.obiekt;
+    const kolorZrodla = {};
+    store.zrodla.forEach(function (z, i) { kolorZrodla[z.kod] = M.PALETA[i % M.PALETA.length]; });
+    const liczniki = new Map();
+    const punkty = [];
+    let bezWsp = 0;
+    let minA = 90, maxA = -90, minB = 180, maxB = -180;
+    st.eksport.forEach(function (r) {
+      const w = M.wspolrzedne(r);
+      if (!w) { bezWsp++; return; }
+      const klucz = st.kolorWg === 'zrodlo' ? String(r._kodZrodla || r.zrodlo_danych || '?') : String(r.status || '');
+      const kolor = st.kolorWg === 'zrodlo' ? (kolorZrodla[klucz] || '#4a4a4a') : (M.KOLORY_STATUSU[klucz] || M.KOLORY_STATUSU['']);
+      liczniki.set(klucz, { kolor: kolor, n: ((liczniki.get(klucz) || {}).n || 0) + 1 });
+      punkty.push({ wsp: w, kolor: kolor, rekord: r });
+      if (w[0] < minA) minA = w[0]; if (w[0] > maxA) maxA = w[0];
+      if (w[1] < minB) minB = w[1]; if (w[1] > maxB) maxB = w[1];
+    });
+    const leg = $('wyn-mapa-legenda');
+    leg.textContent = '';
+    leg.appendChild(h('p', { id: 'wyn-mapa-opis' }, 'Na mapie: ' + liczba(punkty.length) + ' ' + odmiana(punkty.length, 'punkt', 'punkty', 'punktów') +
+      ' z ' + liczba(st.eksport.length) + ' ' + odmiana(st.eksport.length, 'rekordu', 'rekordów', 'rekordów') + ' w eksporcie' +
+      (bezWsp ? '. Bez poprawnych współrzędnych (niewidoczne na mapie): ' + liczba(bezWsp) : '') + '.'));
+    if (liczniki.size) {
+      leg.appendChild(h('ul', { class: 'mapa-legenda__lista', 'aria-label': 'Legenda mapy – ' + (st.kolorWg === 'zrodlo' ? 'źródła' : 'statusy') },
+        Array.from(liczniki.keys()).sort().map(function (k) {
+          const x = liczniki.get(k);
+          const nazwa = st.kolorWg === 'zrodlo' ? k + ((store.zrodla.find(function (z) { return z.kod === k; }) || {}).nazwa ? ' – ' + store.zrodla.find(function (z) { return z.kod === k; }).nazwa : '')
+            : (k ? M.etykietaStatusu(k) : 'brak statusu');
+          return h('li', null, h('span', { class: 'mapa-legenda__znak', style: 'background:' + x.kolor, 'aria-hidden': 'true' }),
+            nazwa + ': ' + liczba(x.n));
+        })));
+    }
+    if (!ob.mapa) return;
+    const sel = $('wyn-mapa-kolor'); if (sel) sel.value = st.kolorWg;
+    if (mapaWyn.warstwa) mapaWyn.warstwa.ustaw(punkty);
+    else mapaWyn.warstwa = M.warstwaPunktow(ob.mapa, punkty, { popup: function (r) { return M.opisPunktu(r); } });
+    if (!mapaWyn.dopasowano && punkty.length) {
+      mapaWyn.dopasowano = true;
+      setTimeout(function () { ob.odswiez(); ob.dopasuj([[minA, minB], [maxA, maxB]], 15); }, 0);
+    }
+  }
+
   // ------------------------------------------------------------ całość
   function renderuj() {
     const brak = $('wyn-brak'), tresc = $('wyn-tresc');
@@ -642,6 +669,8 @@
     const pierwszy = !st.metadane;
     aktualizujDomyslne();
     renderujPodsumowanie();
+    try { renderujMape(); } catch (e) { console.error(e); }
+    if (mapaWyn.obiekt) setTimeout(function () { mapaWyn.obiekt.odswiez(); }, 0);
     renderujLicencje();
     if (pierwszy || !$('wyn-m-form')) renderujMetadane(); else odswiezPolaMetadanych();
     renderujPliki();
@@ -666,5 +695,5 @@
   }
 
   AED.ui = AED.ui || {};
-  AED.ui.wynik = { init: init, renderuj: renderuj, get stan() { return st; } };
+  AED.ui.wynik = { init: init, renderuj: renderuj, get stan() { return st; }, get mapa() { return mapaWyn.obiekt && mapaWyn.obiekt.mapa; } };
 })(window.AED);

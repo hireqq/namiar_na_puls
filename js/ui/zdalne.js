@@ -1,5 +1,5 @@
-/* Krok 1: źródła zdalne – OpenStreetMap (Overpass) i dane.gov.pl (API portalu).
-   Logika pobierania jest w js/sources/osm.js i js/sources/dgp.js (AED.zrodla.osm / AED.zrodla.dgp);
+/* Krok 1: źródło zdalne – dane.gov.pl (API portalu).
+   Logika pobierania jest w js/sources/dgp.js (AED.zrodla.dgp);
    tu jest tylko interfejs: formularze, stan „w toku”, anulowanie, komunikaty i dodanie do rejestru.
    Dane z API są niezaufane – trafiają do DOM wyłącznie przez h() (textContent / atrybuty). */
 (function (AED) {
@@ -82,12 +82,10 @@
     kont.textContent = '';
   }
 
-  /** Komunikat błędu przy karcie: role="alert" + akcje (ponów, pobierz ręcznie).
-      kontekst: { zrodlo: 'osm'|'dgp', zakres? } – zakres OSM z chwili wysłania zapytania. */
+  /** Komunikat błędu przy karcie: role="alert" + akcje (ponów, pobierz ręcznie). */
   function pokazBlad(kontId, e, ponow, kontekst, powrot) {
     const kont = $(kontId);
     wyczysc(kontId);
-    kontekst = kontekst || {};
     const kod = e && e.kod;
     let tytul = 'Nie udało się pobrać danych.';
     const opis = (e && e.message) || 'Nieznany błąd.';
@@ -97,11 +95,6 @@
       wskazowki.push('Odczekaj chwilę (zwykle wystarczy minuta) i spróbuj ponownie.');
     } else if (kod === 'TIMEOUT') {
       tytul = 'Serwer nie odpowiedział na czas.';
-      if (kontekst.zrodlo === 'osm' && kontekst.zakres && kontekst.zakres !== 'gmina' && !/mniejszy obszar/i.test(opis)) {
-        wskazowki.push(kontekst.zakres === 'polska'
-          ? 'Spróbuj mniejszego obszaru, np. jednego województwa zamiast całej Polski.'
-          : 'Spróbuj mniejszego obszaru, np. jednej gminy.');
-      }
     } else if (kod === 'SIEC') {
       if (!/połączeni/i.test(opis)) wskazowki.push('Sprawdź połączenie z internetem.');
     } else if (kod === 'BRAK_DANYCH') {
@@ -166,144 +159,6 @@
       wiersze: w.wiersze || [],
       meta: meta
     });
-  }
-
-  // ===================================================== OpenStreetMap
-  const osmStan = stanKarty({
-    karta: function () { return $('karta-osm'); },
-    anuluj: function () { return $('osm-anuluj'); },
-    stan: function () { return $('osm-stan'); }
-  });
-
-  function osmZakres() {
-    const r = document.querySelector('input[name="osm-zakres"]:checked');
-    return r ? r.value : 'wojewodztwo';
-  }
-
-  function osmPokazPola() {
-    const z = osmZakres();
-    $('osm-pole-woj').hidden = z !== 'wojewodztwo';
-    $('osm-pole-gmina').hidden = z !== 'gmina';
-    $('osm-polska-uwaga').hidden = z !== 'polska';
-  }
-
-  function osmWypelnijWojewodztwa() {
-    const sel = $('osm-woj');
-    if (sel.options.length) return true;
-    const osm = modul('osm');
-    const lista = osm && osm.OBSZARY && osm.OBSZARY.wojewodztwa;
-    if (!lista || !lista.length) return false;
-    lista.slice().sort(function (a, b) { return a.nazwa.localeCompare(b.nazwa, 'pl'); })
-      .forEach(function (w) { sel.appendChild(h('option', { value: w.kod }, w.nazwa)); });
-    return true;
-  }
-
-  function osmBladPola(tekst) {
-    const input = $('osm-gmina');
-    let el = $('osm-gmina-blad');
-    if (!tekst) {
-      if (el) el.remove();
-      input.removeAttribute('aria-invalid');
-      input.setAttribute('aria-describedby', 'osm-gmina-pomoc');
-      return;
-    }
-    if (!el) {
-      el = h('p', { id: 'osm-gmina-blad', class: 'field-error' });
-      input.before(el);
-    }
-    el.textContent = '';
-    el.append(ikona('err'), ' ', tekst);
-    input.setAttribute('aria-invalid', 'true');
-    input.setAttribute('aria-describedby', 'osm-gmina-blad osm-gmina-pomoc');
-  }
-
-  /** Zbiera opcje z formularza; null, gdy pole wymaga poprawy. */
-  function osmOpcje() {
-    const zakres = osmZakres();
-    osmBladPola(null);
-    if (zakres === 'polska') return { opcje: { zakres: 'polska' }, nazwa: 'OSM – Polska', klucz: 'OSM:polska' };
-    if (zakres === 'wojewodztwo') {
-      const sel = $('osm-woj');
-      const kod = sel.value;
-      const nazwaWoj = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : kod;
-      return { opcje: { zakres: 'wojewodztwo', kod: kod }, nazwa: 'OSM – ' + nazwaWoj, klucz: 'OSM:woj:' + kod };
-    }
-    const gmina = $('osm-gmina').value.trim().replace(/\s+/g, ' ');
-    if (!gmina) { osmBladPola('Wpisz nazwę gminy albo jej kod TERYT.'); return null; }
-    const cyfry = gmina.replace(/\s/g, '');
-    if (/^\d+$/.test(cyfry) && cyfry.length !== 7 && cyfry.length !== 6) {
-      osmBladPola('Kod TERYT gminy ma 7 cyfr (np. 1861011 – Krosno). Wpisano ' + cyfry.length + '.');
-      return null;
-    }
-    const teryt = /^\d{6,7}$/.test(cyfry);
-    return {
-      opcje: { zakres: 'gmina', gmina: teryt ? cyfry : gmina },
-      nazwa: 'OSM – gmina ' + (teryt ? '(TERYT ' + cyfry + ')' : gmina),
-      klucz: 'OSM:gmina:' + (teryt ? cyfry : gmina.toLocaleLowerCase('pl'))
-    };
-  }
-
-  /** „OSM – podkarpackie”; dla gminy nazwa granicy znalezionej w OSM, gdy jest jednoznaczna. */
-  function nazwaOsm(wybor, meta) {
-    const obszary = meta.obszaryOsm || [];
-    if (wybor.opcje.zakres === 'gmina' && obszary.length === 1 && obszary[0].nazwa) {
-      const n = obszary[0].nazwa;
-      return 'OSM – ' + (/^gmina /i.test(n) ? n : 'gmina ' + n);
-    }
-    if (wybor.opcje.zakres === 'gmina' && typeof meta.obszar === 'string' && meta.obszar) {
-      return 'OSM – ' + meta.obszar;
-    }
-    return wybor.nazwa;
-  }
-
-  async function osmPobierz() {
-    if (osmStan.trwa) { oglos('Pobieranie z OpenStreetMap już trwa.'); return; }
-    const przycisk = $('osm-pobierz');
-    const osm = modul('osm');
-    if (!osm) {
-      pokazBlad('osm-komunikat', { message: 'Nie wczytano modułu OpenStreetMap (js/sources/osm.js).' });
-      return;
-    }
-    const wybor = osmOpcje();
-    if (!wybor) { wyczysc('osm-komunikat'); $('osm-gmina').focus(); return; }
-
-    const istniejace = znajdzPoKluczu(wybor.klucz);
-    if (istniejace) {
-      pokazInfo('osm-komunikat', 'warn', [
-        h('p', null, 'Ten obszar jest już w rejestrze jako ', h('strong', null, istniejace.kod), ' („', istniejace.nazwa,
-          '”). Aby pobrać dane ponownie, najpierw usuń to źródło z rejestru.'),
-        h('div', { class: 'alert-actions' }, przyciskPodgladu(istniejace))]);
-      oglos('Ten obszar jest już w rejestrze jako ' + istniejace.kod + '.');
-      return;
-    }
-
-    wyczysc('osm-komunikat');
-    const signal = osmStan.start(przycisk, 'Łączenie z serwerem OpenStreetMap…');
-    let w;
-    try {
-      w = await osm.pobierz(wybor.opcje, { signal: signal, onPostep: osmStan.postep });
-      if (signal.aborted) throw przerwano(); // dane doszły już po „Anuluj” – nie dodajemy ich
-    } catch (e) {
-      osmStan.koniec(przycisk);
-      if (czyPrzerwano(e)) { oglos('Anulowano pobieranie z OpenStreetMap.'); return; }
-      console.warn('[AED] obsłużony błąd źródła zdalnego:', e);
-      pokazBlad('osm-komunikat', e, osmPobierz, { zrodlo: 'osm', zakres: wybor.opcje.zakres }, przycisk);
-      return;
-    }
-    osmStan.koniec(przycisk);
-
-    if (!w.wiersze || !w.wiersze.length) {
-      pokazInfo('osm-komunikat', 'warn', h('p', null, 'W OpenStreetMap nie ma defibrylatorów dla wybranego obszaru (',
-        wybor.nazwa.replace(/^OSM – /, ''), '). Nic nie dodano do rejestru.'));
-      oglos('Brak defibrylatorów w OpenStreetMap dla wybranego obszaru. Nic nie dodano.');
-      return;
-    }
-    const nazwa = nazwaOsm(wybor, w.meta || {});
-    const z = dodajDoRejestru('OSM', nazwa, w, { klucz: wybor.klucz });
-    pokazInfo('osm-komunikat', 'ok', [
-      h('p', null, odznaka('ok', 'Dodano'), ' Źródło ', h('strong', null, z.kod), ' „', z.nazwa, '”: ', rekordy(z.wiersze.length), '.'),
-      h('div', { class: 'alert-actions' }, przyciskPodgladu(z))]);
-    oglos('Dodano źródło ' + z.kod + ' ' + z.nazwa + ': ' + rekordy(z.wiersze.length) + '. Źródło jest w rejestrze.');
   }
 
   // ======================================================= dane.gov.pl
@@ -538,20 +393,6 @@
 
   // ----------------------------------------------------------- inicjalizacja
   function init() {
-    // --- OSM
-    if (!osmWypelnijWojewodztwa()) {
-      pokazInfo('osm-komunikat', 'err', h('p', null, 'Nie wczytano modułu OpenStreetMap (js/sources/osm.js). ' +
-        'Sprawdź, czy katalog js/ jest kompletny.'));
-    }
-    document.querySelectorAll('input[name="osm-zakres"]').forEach(function (r) {
-      r.addEventListener('change', function () { osmPokazPola(); wyczysc('osm-komunikat'); });
-    });
-    osmPokazPola();
-    $('osm-gmina').addEventListener('input', function () { if ($('osm-gmina-blad')) osmBladPola(null); });
-    $('osm-form').addEventListener('submit', function (e) { e.preventDefault(); osmPobierz(); });
-    $('osm-pobierz').dataset.etykieta = $('osm-pobierz').textContent;
-    $('osm-anuluj').addEventListener('click', function () { osmStan.anuluj(); });
-
     // --- dane.gov.pl
     if (!modul('dgp')) {
       pokazInfo('dgp-komunikat', 'err', h('p', null, 'Nie wczytano modułu dane.gov.pl (js/sources/dgp.js). ' +
@@ -561,7 +402,7 @@
     $('dgp-fraza').addEventListener('input', function (e) { e.target.removeAttribute('aria-invalid'); });
     $('dgp-anuluj').addEventListener('click', function () { dgpStan.anuluj(); });
 
-    // usunięcie źródła z rejestru odblokowuje ponowne dodanie zasobu
+    // po usunięciu źródła z rejestru zasób można dodać ponownie
     AED.on('zrodla:zmiana', function (e) { if (e.akcja !== 'zmieniono') odswiezPrzyciskiZasobow(); });
   }
 

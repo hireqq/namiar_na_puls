@@ -25,7 +25,7 @@ ctx.window = ctx;
 ctx.self = ctx;
 vm.createContext(ctx);
 ['vendor/papaparse/papaparse.min.js', 'vendor/sheetjs/xlsx.full.min.js', 'js/core/ns.js', 'js/schema/schema.js', 'js/ui/dom.js',
-  'js/sources/file.js', 'js/sources/osm.js', 'js/core/store.js',
+  'js/sources/file.js', 'js/core/store.js',
   'js/core/normalizacja.js', 'js/core/mapowanie.js', 'js/core/walidacja.js'].forEach(function (p) {
   vm.runInContext(czytaj(p), ctx, { filename: p });
 });
@@ -194,11 +194,11 @@ test('normalizacja: wartości logiczne, kondygnacja, godziny', function () {
   assert.ok(!N.poprawneGodziny('rano'));
 });
 
-test('normalizacja: słowniki (synonimy PL i wartości OSM) oraz województwa', function () {
+test('normalizacja: słowniki (synonimy PL i EN) oraz województwa', function () {
   const s = function (n, t) { return zwykly(N.slownik(n, t)); };
   assert.deepStrictEqual(s('dostepnosc', '24h'), { wartosc: 'publiczna_24_7', pewnosc: 'wysoka' });
   assert.deepStrictEqual(s('dostepnosc', 'całodobowo'), { wartosc: 'publiczna_24_7', pewnosc: 'wysoka' });
-  assert.strictEqual(s('dostepnosc', 'yes').wartosc, 'publiczna_w_godzinach');
+  assert.strictEqual(s('dostepnosc', 'yes').wartosc, null, 'samo „yes” nic nie mówi o dostępności');
   assert.strictEqual(s('dostepnosc', 'public').wartosc, 'publiczna_w_godzinach');
   assert.strictEqual(s('dostepnosc', 'customers').wartosc, 'dla_klientow');
   assert.strictEqual(s('dostepnosc', 'private').wartosc, 'tylko_personel');
@@ -210,7 +210,7 @@ test('normalizacja: słowniki (synonimy PL i wartości OSM) oraz województwa', 
   assert.strictEqual(s('dysponent_typ', 'OSP Turaszówka').wartosc, 'sluzby');
   assert.strictEqual(s('dysponent_typ', 'Wojewódzki Szpital Podkarpacki').wartosc, 'podmiot_leczniczy');
   assert.strictEqual(s('sposob_dostepu', 'szafka z alarmem').wartosc, 'szafka_z_alarmem');
-  assert.strictEqual(s('sposob_dostepu', 'no').wartosc, 'otwarta_szafka');
+  assert.strictEqual(s('sposob_dostepu', 'bez zamka').wartosc, 'otwarta_szafka');
   assert.strictEqual(s('typ_urzadzenia', 'półautomatyczny').wartosc, 'polautomatyczny');
   assert.strictEqual(s('typ_urzadzenia', 'automatyczny').wartosc, 'automatyczny');
   assert.strictEqual(s('licencja_rekordu', 'CC BY 4.0').wartosc, 'CC-BY-4.0');
@@ -372,47 +372,6 @@ test('mapowanie: plik zgodny ze wzorcem – 100% pól z kolumn, wartości bez zm
   }
 });
 
-test('mapowanie: OpenStreetMap (Overpass) – tagi, stałe dla OSM, access+opening_hours', async function () {
-  obslugaFetch = function () { return Promise.resolve(new Response(czytaj('tests/fixtures/api/overpass_przyklad.json'), { status: 200 })); };
-  const w = await AED.zrodla.osm.pobierz({ zakres: 'gmina', gmina: '1807062' }, {});
-  const z = zrodloZ(w, { typ: 'OSM', kod: 'OSM-01', licencja: w.meta.licencjaSugerowana, dysponent: w.meta.dysponentSugerowany });
-  const m = M.podpowiedz(z);
-  assert.strictEqual(m.szerokosc_geograficzna.kolumna, 'lat');
-  assert.strictEqual(m.dlugosc_geograficzna.kolumna, 'lon');
-  assert.strictEqual(m.nazwa.kolumna, 'name');
-  assert.strictEqual(m.opis_lokalizacji.kolumna, 'defibrillator:location');
-  assert.strictEqual(m.dostepnosc.kolumna, 'access');
-  assert.strictEqual(m.godziny_dostepnosci.kolumna, 'opening_hours');
-  assert.strictEqual(m.wewnatrz_budynku.kolumna, 'indoor');
-  assert.strictEqual(m.kondygnacja.kolumna, 'level');
-  assert.strictEqual(m.dysponent_nazwa.kolumna, 'operator');
-  assert.strictEqual(m.telefon_kontaktowy.kolumna, 'phone');
-  assert.strictEqual(m.miejscowosc.kolumna, 'addr:city');
-  assert.strictEqual(m.miejscowosc.zapas, 'addr:place');
-  assert.strictEqual(m.ulica.kolumna, 'addr:street');
-  assert.strictEqual(m.numer_budynku.kolumna, 'addr:housenumber');
-  assert.strictEqual(m.kod_pocztowy.kolumna, 'addr:postcode');
-  assert.strictEqual(m.zrodlo_wspolrzednych.wartosc, 'osm');
-  assert.strictEqual(m.status.wartosc, 'do_weryfikacji');
-  assert.strictEqual(m.licencja_rekordu.wartosc, 'ODbL-1.0');
-  assert.strictEqual(m.data_aktualizacji_rekordu.wartosc, '2026-11-21T12:00:00');
-  assert.strictEqual(m.zrodlo_id_rekordu.szablon, '{osm_typ}/{osm_id}');
-  const wynik = M.zastosuj(z, m);
-  const [a, b, c] = wynik.rekordy;
-  assert.strictEqual(a.zrodlo_id_rekordu, 'node/900000001');
-  assert.strictEqual(c.zrodlo_id_rekordu, 'way/900000003');
-  assert.strictEqual(a.dostepnosc, 'publiczna_w_godzinach');
-  assert.strictEqual(b.dostepnosc, 'publiczna_24_7', 'access=yes + opening_hours=24/7');
-  assert.strictEqual(a.wewnatrz_budynku, true); assert.strictEqual(b.wewnatrz_budynku, false);
-  assert.strictEqual(a.kondygnacja, 0);
-  assert.strictEqual(a.telefon_kontaktowy, '+48130000000');
-  assert.strictEqual(a.ulica, 'Rynek'); assert.strictEqual(a.cecha_ulicy, 'ul.');
-  assert.strictEqual(c.miejscowosc, 'Przykładowo', 'addr:place jako zapas');
-  assert.strictEqual(a._wiersz, 1);
-  assert.strictEqual(b.dysponent_nazwa, null, 'OSM: bez operatora nie zgadujemy dysponenta');
-  zapiszStatystyke('OSM (fikcyjna odpowiedź Overpass)', z, m, wynik);
-});
-
 test('mapowanie: dopasowanie po zawartości (nagłówki bez znaczenia)', function () {
   const wiersze = [];
   for (let i = 0; i < 20; i++) {
@@ -529,7 +488,7 @@ test('walidacja: każdy kod problemu', function () {
   jest(problemy({ nazwa: 'x'.repeat(151) }), 'nazwa', 'DLUGOSC', 'blad');
   jest(problemy({ lokalizacja_przyblizona: false, zrodlo_wspolrzednych: 'geokodowanie_adresu' }), 'lokalizacja_przyblizona', 'NIESPOJNY', 'ostrzezenie');
   jest(problemy({ wojewodztwo: 'podkarpackie' }), 'wojewodztwo', 'NIESPOJNY');
-  jest(problemy({ zrodlo_wspolrzednych: 'osm' }), 'licencja_rekordu', 'NIESPOJNY');
+  jest(problemy({ lokalizacja_przyblizona: true, zrodlo_wspolrzednych: 'pomiar_gps' }), 'lokalizacja_przyblizona', 'NIESPOJNY', 'ostrzezenie');
   jest(problemy({ dostepnosc: 'publiczna_24_7' }), 'godziny_dostepnosci', 'NIESPOJNY');
   jest(problemy({ szerokosc_geograficzna: 52.23, dlugosc_geograficzna: 21.01 }), 'szerokosc_geograficzna', 'PODEJRZANY', 'ostrzezenie');
   jest(problemy({ nazwa: 'Defibrylator' }), 'nazwa', 'PODEJRZANY');
@@ -545,7 +504,7 @@ test('walidacja: każdy kod problemu', function () {
 
 test('walidacja: zbiór – UNIKALNY i podsumowania wg pola i źródła', function () {
   const a = rekordWzorcowy(), b = Object.assign(rekordWzorcowy(), { _id: 'T:3', _wiersz: 3 });
-  const c = Object.assign(rekordWzorcowy(), { _id: 'U:2', _kodZrodla: 'OSM-01', id_aed: M.nowyUuid(), id_lokalne: null, dostepnosc: null });
+  const c = Object.assign(rekordWzorcowy(), { _id: 'U:2', _kodZrodla: 'DGP-01', id_aed: M.nowyUuid(), id_lokalne: null, dostepnosc: null });
   const w = W.waliduj([a, b, c], { dzis: DZIS });
   const u = w.problemy.filter(function (p) { return p.kod === 'UNIKALNY'; });
   assert.strictEqual(u.length, 2, 'id_aed (błąd) i id_lokalne (ostrzeżenie) w drugim rekordzie');
@@ -556,7 +515,7 @@ test('walidacja: zbiór – UNIKALNY i podsumowania wg pola i źródła', functi
   assert.strictEqual(w.podsumowanie.ostrzezenia, 1);
   assert.strictEqual(w.podsumowanie.rekordyZBledami, 2);
   assert.deepStrictEqual(zwykly(w.podsumowanie.wgPola.id_aed), { bledy: 1, ostrzezenia: 0 });
-  assert.deepStrictEqual(zwykly(w.podsumowanie.wgZrodla['OSM-01']), { rekordy: 1, bledy: 1, ostrzezenia: 0, rekordyZBledami: 1 });
+  assert.deepStrictEqual(zwykly(w.podsumowanie.wgZrodla['DGP-01']), { rekordy: 1, bledy: 1, ostrzezenia: 0, rekordyZBledami: 1 });
   assert.deepStrictEqual(zwykly(w.podsumowanie.wgZrodla['PLIK-99']), { rekordy: 2, bledy: 1, ostrzezenia: 1, rekordyZBledami: 1 });
   const ids = new Set(w.problemy.map(function (p) { return p.id; }));
   assert.strictEqual(ids.size, w.problemy.length, 'id problemów unikalne');
@@ -739,27 +698,27 @@ test('przegląd: walidujUnikalnosc z indeksem, naprawy adresu tylko dla pól z r
 });
 
 // ================================================================ wydajność
-test('wydajność: 50 000 rekordów (OSM-podobne) – podpowiedź, zastosowanie, walidacja', function () {
+test('wydajność: 50 000 rekordów (szeroki plik, ~60 kolumn) – podpowiedź, zastosowanie, walidacja', function () {
   const n = 50000;
-  const tagi = ['name', 'defibrillator:location', 'access', 'opening_hours', 'indoor', 'level', 'locked', 'operator', 'phone',
-    'addr:city', 'addr:street', 'addr:housenumber', 'addr:postcode', 'check_date', 'note', 'manufacturer', 'model', 'description'];
-  for (let i = 0; i < 40; i++) tagi.push('inny:tag' + i);
+  const tagi = ['nazwa', 'opis lokalizacji', 'dostepnosc', 'godziny', 'wewnatrz', 'pietro', 'zabezpieczenie', 'dysponent', 'telefon',
+    'miejscowosc', 'ulica', 'numer budynku', 'kod pocztowy', 'data weryfikacji', 'uwagi', 'producent', 'model', 'instrukcja'];
+  for (let i = 0; i < 40; i++) tagi.push('kolumna dodatkowa ' + i);
   const wiersze = new Array(n);
   const godz = ['24/7', 'Mo-Fr 07:00-17:00', '', 'pn-pt 8-16'];
   for (let i = 0; i < n; i++) {
-    const o = { osm_typ: i % 10 ? 'node' : 'way', osm_id: String(1000000 + i), lat: (49.1 + (i % 5000) / 1000).toFixed(7), lon: (14.2 + (i % 9000) / 1000).toFixed(7) };
+    const o = { id: String(1000000 + i), lat: (49.1 + (i % 5000) / 1000).toFixed(7), lon: (14.2 + (i % 9000) / 1000).toFixed(7) };
     tagi.forEach(function (t, k) { o[t] = (i + k) % 3 ? '' : t + ' ' + i; });
-    o.access = ['yes', 'customers', 'private', ''][i % 4];
-    o.opening_hours = godz[i % 4];
-    o.indoor = i % 2 ? 'yes' : 'no';
-    o.level = String(i % 3);
-    o.phone = i % 5 ? '' : '+48 600 100 ' + String(100 + i % 900);
-    o['addr:postcode'] = i % 2 ? '00-' + String(100 + i % 900) : '';
-    o.check_date = i % 3 ? '' : '2025-0' + (1 + i % 9) + '-15';
+    o.dostepnosc = ['publiczna 24/7', 'dla klientów', 'tylko personel', ''][i % 4];
+    o.godziny = godz[i % 4];
+    o.wewnatrz = i % 2 ? 'tak' : 'nie';
+    o.pietro = String(i % 3);
+    o.telefon = i % 5 ? '' : '+48 600 100 ' + String(100 + i % 900);
+    o['kod pocztowy'] = i % 2 ? '00-' + String(100 + i % 900) : '';
+    o['data weryfikacji'] = i % 3 ? '' : '2025-0' + (1 + i % 9) + '-15';
     wiersze[i] = o;
   }
-  const z = zrodloZ({ kolumny: ['osm_typ', 'osm_id', 'lat', 'lon'].concat(tagi), wiersze: wiersze, meta: { dataDanych: '2026-11-21T12:00:00Z' } },
-    { typ: 'OSM', kod: 'OSM-50K', licencja: 'ODbL-1.0' });
+  const z = zrodloZ({ kolumny: ['id', 'lat', 'lon'].concat(tagi), wiersze: wiersze, meta: { dataDanych: '2026-11-21T12:00:00Z' } },
+    { typ: 'PLIK', kod: 'PLIK-50K', licencja: 'CC0-1.0' });
   let t0 = Date.now();
   const m = M.podpowiedz(z);
   const tP = Date.now() - t0;
@@ -770,7 +729,7 @@ test('wydajność: 50 000 rekordów (OSM-podobne) – podpowiedź, zastosowanie,
   const wal = W.waliduj(w.rekordy, { dzis: DZIS });
   const tW = Date.now() - t0;
   assert.strictEqual(w.rekordy.length, n);
-  assert.strictEqual(m.dostepnosc.kolumna, 'access');
+  assert.strictEqual(m.dostepnosc.kolumna, 'dostepnosc');
   assert.strictEqual(new Set(w.rekordy.map(function (r) { return r.id_aed; })).size, n, 'unikalne UUID');
   statystyki.push({ zbior: 'WYDAJNOŚĆ 50k', rekordy: n, polaZKolumn: zKolumny(m).length, polaStale: zStalych(m).length, polaBrak: '-',
     naprawy: w.podsumowanie.naprawy, bledy: wal.podsumowanie.bledy, ostrzezenia: wal.podsumowanie.ostrzezenia,

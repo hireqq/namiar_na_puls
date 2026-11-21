@@ -7,7 +7,7 @@
   'use strict';
 
   const state = {
-    zrodla: [], licznik: { PLIK: 0, OSM: 0, DGP: 0, FORMULARZ: 0 },
+    zrodla: [], licznik: { PLIK: 0, DGP: 0, FORMULARZ: 0 },
     rekordy: [], indeks: new Map(),   // _id -> rekord
     poprawki: new Map(),              // _id -> { odcisk, pola: { pole: wartość wpisana ręcznie } } – przetrwa przelicz()
     // część 4: duplikaty i wynik scalenia
@@ -19,8 +19,8 @@
   };
 
   // Domyślny priorytet z rejestru źródeł we wzorcu (1 = najwyższy)
-  const PRIORYTET = { PLIK: 1, DGP: 1, FORMULARZ: 2, OSM: 3 };
-  const TYP_OPIS = { PLIK: 'plik lokalny', DGP: 'zbiór dane.gov.pl', OSM: 'OpenStreetMap', FORMULARZ: 'formularz' };
+  const PRIORYTET = { PLIK: 1, DGP: 1, FORMULARZ: 2 };
+  const TYP_OPIS = { PLIK: 'plik lokalny', DGP: 'zbiór dane.gov.pl', FORMULARZ: 'formularz dysponenta' };
 
   function nowyKod(typ) {
     state.licznik[typ] = (state.licznik[typ] || 0) + 1;
@@ -95,6 +95,11 @@
         this.ustawRekordy(state.rekordy.filter(function (r) { return r._zrodlo !== id; }));
       }
       return z;
+    },
+
+    /** Kod, który dostanie następne źródło danego typu (np. 'FORMULARZ-02') – bez rezerwowania go. */
+    przewidzKod(typ) {
+      return typ + '-' + String((state.licznik[typ] || 0) + 1).padStart(2, '0');
     },
 
     get liczbaRekordow() {
@@ -248,7 +253,7 @@
       oznaczWynik();
     },
 
-    /** Scalenie tylko wybranych rekordów wejściowych (np. bez ODbL) – nie zmienia stanu; decyzje jak w wyniku.
+    /** Scalenie tylko wybranych rekordów wejściowych (np. jednej licencji) – nie zmienia stanu; decyzje jak w wyniku.
         Rekord scalony powstaje wtedy wyłącznie z rekordów, które przeszły filtr. @returns {{rekordy, raport}} */
     wynikDla(filtr) {
       const wej = state.rekordy.filter(filtr);

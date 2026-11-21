@@ -40,8 +40,53 @@
     poprawioneWsp: new Map(), // rekordId -> {szer, dl} zapisane w tym kroku
     edycja: null,           // rekordId odstającego z otwartym formularzem
     stronaOdst: 1,
-    blad: null
+    blad: null,
+    mapy: new Set()         // otwarte mapy: 'g:' + id grupy albo 'o:' + rekordId odstającego
   };
+  const aktywneMapy = { g: [], o: [] }; // obiekty map do zniszczenia przy ponownym rysowaniu listy
+
+  // ------------------------------------------------------------ mapa w kroku 3 (dodatek – dane są też w tabelach)
+  function zniszczMapy(rodzaj) { aktywneMapy[rodzaj].forEach(function (m) { m.zniszcz(); }); aktywneMapy[rodzaj] = []; }
+
+  /** Przycisk „Pokaż na mapie” (aria-expanded) – przełącza mapę pod elementem listy. */
+  function przyciskMapy(klucz, opis, przerysuj, idFokus) {
+    if (!AED.ui.mapa) return null;
+    const otwarta = st.mapy.has(klucz);
+    return h('button', { type: 'button', class: 'btn btn--ghost btn--small', id: idFokus, 'aria-expanded': otwarta ? 'true' : 'false',
+      onclick: function () {
+        if (otwarta) st.mapy.delete(klucz); else st.mapy.add(klucz);
+        przerysuj();
+        const b = document.getElementById(idFokus); if (b) b.focus();
+        oglos(otwarta ? 'Ukryto mapę.' : 'Pokazano mapę pod listą rekordów. Opis punktów jest też w tekście pod mapą.');
+      } }, otwarta ? 'Ukryj mapę' : 'Pokaż na mapie', h('span', { class: 'visually-hidden' }, ' – ' + opis));
+  }
+
+  /** Mapa z numerowanymi punktami. punkty: [{wsp, etykieta, rekord}]; o.przeciagany: fn(lat, lon) dla pierwszego punktu. */
+  function mapaPunktow(rodzaj, etykieta, punkty, o) {
+    o = o || {};
+    const M = AED.ui.mapa;
+    const m = M.utworz({ etykieta: etykieta, klasa: 'mapa__okno--mala',
+      opisDodatkowy: o.przeciagany ? 'Punkt możesz przeciągnąć myszą – współrzędne wpiszą się w pola formularza. Możesz też wpisać je ręcznie.' : '' });
+    aktywneMapy[rodzaj].push(m);
+    const wsp = punkty.map(function (p) { return p.wsp; }).filter(Boolean);
+    if (m.mapa) {
+      punkty.forEach(function (p, i) {
+        if (!p.wsp) return;
+        const mk = L.marker(p.wsp, {
+          keyboard: true, draggable: !!(o.przeciagany && i === 0), title: p.etykieta,
+          alt: p.etykieta,
+          icon: L.divIcon({ className: 'mapa-numer', html: '<span>' + (i + 1) + '</span>', iconSize: [28, 28] })
+        }).addTo(m.mapa);
+        mk.bindPopup(function () { return M.opisPunktu(p.rekord); });
+        if (o.przeciagany && i === 0) mk.on('dragend', function () { const ll = mk.getLatLng(); o.przeciagany(ll.lat, ll.lng); });
+      });
+      setTimeout(function () { m.odswiez(); m.dopasuj(wsp, 17); }, 0);
+    }
+    const lista = h('ol', { class: 'mapa-punkty' }, punkty.map(function (p) {
+      return h('li', null, p.etykieta, ': ', p.wsp ? p.wsp[0] + ', ' + p.wsp[1] : 'brak poprawnych współrzędnych – punktu nie ma na mapie');
+    }));
+    return h('div', { class: 'mapa-wstawka' }, m.element, h('p', { class: 'meta' }, 'Numery na mapie:'), lista);
+  }
 
   function $(id) { return document.getElementById(id); }
   function dostepne() { return !!(AED.duplikaty && store.znajdzDuplikaty); }
@@ -396,6 +441,7 @@
     const opisStanu = OPIS_STANU[s];
     const idStan = 'dup-' + gid + '-stan';
     const tekst = 'grupa ' + nr;
+    const kluczMapy = 'g:' + g.id;
     return h('li', { class: 'grupa grupa--' + g.pewnosc + (D[g.id] ? ' is-zdecydowana' : '') },
       h('h4', { class: 'grupa__tytul', tabindex: '-1', id: 'dup-h-' + gid },
         'Grupa ' + nr + ': ' + liczba(g.rekordy.length) + ' ' + odmiana(g.rekordy.length, 'rekord', 'rekordy', 'rekordów') +
@@ -414,7 +460,11 @@
           'To różne urządzenia', h('span', { class: 'visually-hidden' }, ' – ' + tekst)) : null,
         D[g.id] ? h('button', { type: 'button', class: 'btn btn--ghost btn--small',
           onclick: function () { zdecyduj(g, nr, null, 'Grupa ' + nr + ': cofnięto decyzję.'); } },
-          'Cofnij decyzję', h('span', { class: 'visually-hidden' }, ' – ' + tekst)) : null));
+          'Cofnij decyzję', h('span', { class: 'visually-hidden' }, ' – ' + tekst)) : null,
+        przyciskMapy(kluczMapy, tekst, renderujListe, 'dup-' + gid + '-mapa')),
+      st.mapy.has(kluczMapy) && AED.ui.mapa ? mapaPunktow('g', 'Mapa – ' + tekst, rek.map(function (r, i) {
+        return { wsp: AED.ui.mapa.wspolrzedne(r), etykieta: opisRekordu(r, g.rekordy[i]) + (r && r.nazwa ? ' – ' + r.nazwa : ''), rekord: r };
+      })) : null);
   }
 
   function paginacja(stron, aktualna, etykieta, idz) {
@@ -427,6 +477,7 @@
   function renderujListe() {
     const kont = $('dup-lista');
     if (!kont) return;
+    zniszczMapy('g');
     kont.textContent = '';
     const wszystkie = przefiltrowane();
     const stron = Math.max(1, Math.ceil(wszystkie.length / NA_STRONE));
@@ -509,7 +560,14 @@
             ustawPoprawny(o, true); st.edycja = null;
             renderujOdstajace(); fokusOdst(i);
             oglos('Oznaczono punkt ' + opisRekordu(r, o.rekordId) + ' jako poprawny.');
-          } }, 'To poprawne', h('span', { class: 'visually-hidden' }, ' – ' + opisRekordu(r, o.rekordId)))),
+          } }, 'To poprawne', h('span', { class: 'visually-hidden' }, ' – ' + opisRekordu(r, o.rekordId))),
+        przyciskMapy('o:' + o.rekordId, opisRekordu(r, o.rekordId), renderujOdstajace, id + '-mapa')),
+      st.mapy.has('o:' + o.rekordId) && AED.ui.mapa ? mapaPunktow('o', 'Mapa – ' + opisRekordu(r, o.rekordId),
+        [{ wsp: AED.ui.mapa.wspolrzedne(r), etykieta: opisRekordu(r, o.rekordId) + (r && r.nazwa ? ' – ' + r.nazwa : ''), rekord: r }],
+        { przeciagany: edycja ? function (lat, lon) {
+          const a = $(id + '-sz'), b = $(id + '-dl');
+          if (a && b) { a.value = lat.toFixed(6); b.value = lon.toFixed(6); oglos('Wpisano współrzędne z mapy: ' + a.value + ', ' + b.value + '. Zapisz je przyciskiem „Zapisz współrzędne”.'); }
+        } : null }) : null,
       edycja ? h('form', { class: 'problem__edycja odst__form', id: id + '-form', novalidate: true,
         'aria-label': 'Popraw współrzędne – ' + opisRekordu(r, o.rekordId),
         onsubmit: function (e) { e.preventDefault(); zapiszWsp(o, i); },
@@ -533,6 +591,7 @@
   function renderujOdstajace() {
     const kont = $('wal-odstajace');
     if (!kont) return;
+    zniszczMapy('o');
     kont.textContent = '';
     const w = wynik();
     if (!dostepne()) return;

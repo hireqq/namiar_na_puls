@@ -145,7 +145,7 @@
   }
   function czyste(r) { const o = {}; POLA.forEach(function (p) { o[p] = r[p] === undefined ? null : r[p]; }); return o; }
   function xmlEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-  const SPDX = { 'CC0-1.0': 'CC0 1.0', 'CC-BY-4.0': 'CC BY 4.0', 'ODbL-1.0': 'ODbL 1.0' };
+  const SPDX = { 'CC0-1.0': 'CC0 1.0', 'CC-BY-4.0': 'CC BY 4.0' };
 
   const E = {
     SLOWNIKI_XML: SLOWNIKI_XML,
@@ -176,9 +176,6 @@
     },
     licencjaZbioru: function (r) {
       const l = new Set(r.map(function (x) { return x.licencja_rekordu; }));
-      if (l.has('ODbL-1.0')) return { kod: 'ODbL-1.0', nazwa: 'Open Database License 1.0',
-        uzasadnienie: 'Zbiór zawiera rekordy z OpenStreetMap (ODbL). Baza pochodna musi być udostępniona na tej samej licencji.',
-        atrybucje: ['© współtwórcy OpenStreetMap (openstreetmap.org/copyright)'] };
       if (l.has('CC-BY-4.0')) return { kod: 'CC-BY-4.0', nazwa: 'Creative Commons Uznanie autorstwa 4.0',
         uzasadnienie: 'Część źródeł wymaga podania autora (CC BY 4.0).', atrybucje: ['Urząd Miasta Marki – dane.gov.pl/pl/dataset/4955'] };
       return { kod: 'CC0-1.0', nazwa: 'CC0 1.0 (domena publiczna)', uzasadnienie: 'Wszystkie źródła są na CC0.', atrybucje: [] };

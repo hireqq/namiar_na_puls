@@ -20,7 +20,6 @@
         "przyklad": "8f14e45f-ceea-467a-9a3b-2c1d0e5f6a7b",
         "uzasadnienie": "Pozwala aktualizować rekord zamiast tworzyć duplikat i łączyć go z innymi zbiorami. UUID nie wymaga centralnego rejestru, więc może go nadać dysponent lub aplikacja w przeglądarce.",
         "slownik": null,
-        "osm": "ref:aed (propozycja, do weryfikacji)",
         "walidacja": "wzorzec UUID; unikalny w zbiorze"
       }
     },
@@ -36,7 +35,6 @@
         "przyklad": "AED-9485",
         "uzasadnienie": "Dysponent szybko odnajduje swój rekord. Para dysponent + id_lokalne pewnie wykrywa duplikaty przy kolejnych importach.",
         "slownik": null,
-        "osm": "ref=*",
         "walidacja": "unikalny w obrębie dysponenta"
       }
     },
@@ -56,7 +54,6 @@
         "przyklad": "Szkoła Podstawowa nr 1 – hol główny",
         "uzasadnienie": "Świadek zdarzenia szuka budynku, a nie współrzędnych. Nazwa jest też tytułem pinezki w aplikacjach.",
         "slownik": null,
-        "osm": "name=* (obiektu) / description=*",
         "walidacja": "niepuste; maks. 150 znaków"
       }
     },
@@ -79,9 +76,8 @@
         "obowiazkowosc": "O",
         "format": "kod ze słownika",
         "przyklad": "aktywny",
-        "uzasadnienie": "Wycofanych rekordów nie kasujemy, tylko oznaczamy. Dzięki temu urządzenie, którego już nie ma, nie „wraca” z OSM przy kolejnym scaleniu.",
+        "uzasadnienie": "Wycofanych rekordów nie kasujemy, tylko oznaczamy. Dzięki temu urządzenie, którego już nie ma, nie „wraca” z innego źródła przy kolejnym scaleniu.",
         "slownik": "status",
-        "osm": "emergency=defibrillator / disused:*",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -100,9 +96,8 @@
         "obowiazkowosc": "O",
         "format": "WGS84 (EPSG:4326), stopnie dziesiętne, kropka, 6 miejsc po przecinku",
         "przyklad": "52.229676",
-        "uzasadnienie": "Bez współrzędnych nie ma nawigacji ani mapy. WGS84 wymaga format GeoJSON (RFC 7946) i używa go GPS oraz OSM. Kropka dziesiętna zgodnie ze Standardem technicznym dane.gov.pl (2020).",
+        "uzasadnienie": "Bez współrzędnych nie ma nawigacji ani mapy. WGS84 wymaga format GeoJSON (RFC 7946) i używa go GPS oraz większość map internetowych. Kropka dziesiętna zgodnie ze Standardem technicznym dane.gov.pl (2020).",
         "slownik": null,
-        "osm": "lat węzła",
         "walidacja": "49.0–54.9 (granice PL); kontrola zamiany z długością"
       }
     },
@@ -123,7 +118,6 @@
         "przyklad": "21.012229",
         "uzasadnienie": "Jw. W zbiorze z Marek na dane.gov.pl nagłówki mają odwrotną kolejność niż wartości. Walidator musi to wykrywać.",
         "slownik": null,
-        "osm": "lon węzła",
         "walidacja": "14.1–24.2 (granice PL)"
       }
     },
@@ -148,7 +142,6 @@
         "przyklad": "false",
         "uzasadnienie": "Ratownik wie, czy może ufać pinezce, czy musi szukać w budynku. Rekordy przybliżone wskazują też, gdzie potrzebna jest weryfikacja w terenie.",
         "slownik": null,
-        "osm": "— (brak odpowiednika)",
         "walidacja": "true/false"
       }
     },
@@ -162,7 +155,6 @@
           "pomiar_gps",
           "wskazanie_na_mapie",
           "geokodowanie_adresu",
-          "osm",
           "nieznane"
         ]
       },
@@ -173,7 +165,6 @@
         "przyklad": "pomiar_gps",
         "uzasadnienie": "Uzupełnia flagę przybliżenia. Pomaga rozstrzygać konflikty przy scalaniu (pomiar GPS > geokodowanie).",
         "slownik": "zrodlo_wspolrzednych",
-        "osm": "—",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -192,7 +183,6 @@
         "przyklad": "1465011",
         "uzasadnienie": "Pozwala agregować dane po gminach, powiatach i województwach oraz łączyć je z innymi zbiorami publicznymi. Standard techniczny dane.gov.pl wskazuje TERYT jako miejsce publikacji danych adresowych.",
         "slownik": null,
-        "osm": "— (pochodna z granic administracyjnych)",
         "walidacja": "7 cyfr; tekst, z zerem wiodącym"
       }
     },
@@ -228,7 +218,6 @@
         "przyklad": "mazowieckie",
         "uzasadnienie": "Ułatwia filtrowanie bez znajomości kodów. Można ją wyliczyć z kod_terc_gminy (pierwsze 2 cyfry).",
         "slownik": "wojewodztwo",
-        "osm": "—",
         "walidacja": "jedna z 16 nazw"
       }
     },
@@ -247,7 +236,6 @@
         "przyklad": "Warszawa",
         "uzasadnienie": "Standard techniczny dane.gov.pl wymaga adresu w odrębnych polach (ulica, numer, kod, miejscowość), a nie w jednym polu tekstowym.",
         "slownik": null,
-        "osm": "addr:city / addr:place",
         "walidacja": "niepuste"
       }
     },
@@ -266,7 +254,6 @@
         "przyklad": "0918123",
         "uzasadnienie": "Jednoznaczny i niezmienny. Rozwiązuje problem powtarzalnych nazw miejscowości (np. wiele miejscowości „Zalesie”).",
         "slownik": null,
-        "osm": "—",
         "walidacja": "7 cyfr"
       }
     },
@@ -294,7 +281,6 @@
         "przyklad": "ul.",
         "uzasadnienie": "Rozdzielenie cechy od nazwy wzorujemy na tabeli 4 Standardu technicznego dane.gov.pl.",
         "slownik": "cecha_ulicy",
-        "osm": "część addr:street",
         "walidacja": "wymagane gdy ulica niepusta",
         "wymaganeGdy": {
           "pole": "ulica",
@@ -314,7 +300,6 @@
         "przyklad": "Marszałkowska",
         "uzasadnienie": "Jw. Część małych miejscowości nie ma ulic, więc pole jest warunkowe.",
         "slownik": null,
-        "osm": "addr:street",
         "walidacja": "—"
       }
     },
@@ -333,7 +318,6 @@
         "przyklad": "12345",
         "uzasadnienie": "Jednoznaczny klucz do rejestru adresów; ułatwia geokodowanie i deduplikację.",
         "slownik": null,
-        "osm": "—",
         "walidacja": "5 cyfr"
       }
     },
@@ -349,7 +333,6 @@
         "przyklad": "100",
         "uzasadnienie": "Potrzebny do nawigacji i porównywania adresów przy deduplikacji. Typ tekstowy, bo numery zawierają litery.",
         "slownik": null,
-        "osm": "addr:housenumber",
         "walidacja": "—"
       }
     },
@@ -368,7 +351,6 @@
         "przyklad": "00-001",
         "uzasadnienie": "Standardowy element adresu pocztowego (Standard techniczny, tabela 4).",
         "slownik": null,
-        "osm": "addr:postcode",
         "walidacja": "wzorzec \\d{2}-\\d{3}"
       }
     },
@@ -388,7 +370,6 @@
         "przyklad": "Hol główny, na lewo od wejścia, obok recepcji",
         "uzasadnienie": "Najważniejsza informacja w pierwszych minutach. Współrzędne nie powiedzą, za którymi drzwiami szukać.",
         "slownik": null,
-        "osm": "defibrillator:location=*",
         "walidacja": "niepuste"
       }
     },
@@ -405,9 +386,8 @@
         "obowiazkowosc": "F",
         "format": "maks. 300 znaków",
         "przyklad": "Main hall, left of the entrance, next to the reception",
-        "uzasadnienie": "Turyści i obcokrajowcy. OSM ma odpowiednik defibrillator:location:en.",
+        "uzasadnienie": "Turyści i obcokrajowcy.",
         "slownik": null,
-        "osm": "defibrillator:location:en=*",
         "walidacja": "—"
       }
     },
@@ -429,7 +409,6 @@
         "przyklad": "true",
         "uzasadnienie": "AED na zewnątrz jest zwykle dostępny całą dobę; wewnątrz zależy od godzin otwarcia.",
         "slownik": null,
-        "osm": "indoor=yes/no",
         "walidacja": "true/false"
       }
     },
@@ -449,7 +428,6 @@
         "przyklad": "0",
         "uzasadnienie": "W wielopiętrowych budynkach (galerie, dworce) oszczędza czas.",
         "slownik": null,
-        "osm": "level=*",
         "walidacja": "liczba całkowita od -5 do 100"
       }
     },
@@ -475,7 +453,6 @@
         "przyklad": "publiczna_w_godzinach",
         "uzasadnienie": "To sedno lekcji z opisu zadania: AED był w kilku miejscach, ale zamknięty. Ratownik musi wiedzieć to z góry.",
         "slownik": "dostepnosc",
-        "osm": "access=*",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -487,11 +464,10 @@
       "aed": {
         "grupa": "Dostępność",
         "obowiazkowosc": "W",
-        "format": "składnia OSM opening_hours, np. Mo-Fr 07:00-17:00; Sa 08:00-14:00 lub 24/7",
+        "format": "składnia opening_hours, np. Mo-Fr 07:00-17:00; Sa 08:00-14:00 lub 24/7",
         "przyklad": "Mo-Fr 07:00-17:00",
-        "uzasadnienie": "Składnia OSM jest maszynowo czytelna (są do niej otwarte parsery). Aplikacja może więc pokazać „dostępny teraz”. Zwykły tekst („w godzinach pracy”) na to nie pozwala.",
+        "uzasadnienie": "Składnia opening_hours jest maszynowo czytelna (są do niej otwarte parsery). Aplikacja może więc pokazać „dostępny teraz”. Zwykły tekst („w godzinach pracy”) na to nie pozwala.",
         "slownik": null,
-        "osm": "opening_hours=*",
         "walidacja": "poprawna składnia opening_hours",
         "wymaganeGdy": {
           "pole": "dostepnosc",
@@ -525,7 +501,6 @@
         "przyklad": "szafka_z_alarmem",
         "uzasadnienie": "Szafka na klucz bez informacji, gdzie jest klucz, oznacza w praktyce brak AED.",
         "slownik": "sposob_dostepu",
-        "osm": "locked=* + defibrillator:cabinet=*",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -544,7 +519,6 @@
         "przyklad": "Klucz w portierni (całodobowo)",
         "uzasadnienie": "Uzupełnia sposób dostępu. Publikowanie kodu w otwartych danych byłoby ryzykiem kradzieży (Standard bezpieczeństwa).",
         "slownik": null,
-        "osm": "description=* (brak dedykowanego klucza)",
         "walidacja": "nie zawiera ciągu wyglądającego na kod (np. 4–8 cyfr)",
         "wymaganeGdy": {
           "pole": "sposob_dostepu",
@@ -574,7 +548,6 @@
         "przyklad": "polautomatyczny",
         "uzasadnienie": "Pomocne dla dyspozytora prowadzącego świadka przez telefon.",
         "slownik": "typ_urzadzenia",
-        "osm": "—",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -590,7 +563,6 @@
         "przyklad": "Producent X",
         "uzasadnienie": "Komunikaty bezpieczeństwa (wycofania z rynku) dotyczą konkretnych producentów i modeli.",
         "slownik": null,
-        "osm": "manufacturer=*",
         "walidacja": "—"
       }
     },
@@ -606,7 +578,6 @@
         "przyklad": "Model Y",
         "uzasadnienie": "Jw. Dyspozytor może też podać instrukcję obsługi dla danego modelu.",
         "slownik": null,
-        "osm": "model=*",
         "walidacja": "—"
       }
     },
@@ -628,7 +599,6 @@
         "przyklad": "true",
         "uzasadnienie": "Przy NZK u dziecka pozwala wybrać właściwe urządzenie (szkoły, przedszkola, baseny).",
         "slownik": null,
-        "osm": "— (propozycja: defibrillator:pediatric, do weryfikacji)",
         "walidacja": "true/false"
       }
     },
@@ -644,7 +614,6 @@
         "przyklad": "2027-06-30",
         "uzasadnienie": "Elektrody po terminie mogą nie działać. Pole odpowiada na pytanie z zadania „czy działa” i pozwala przypominać dysponentom o wymianie.",
         "slownik": null,
-        "osm": "—",
         "walidacja": "data ISO; ostrzeżenie, gdy w przeszłości"
       }
     },
@@ -660,7 +629,6 @@
         "przyklad": "2029-01-31",
         "uzasadnienie": "Jw.",
         "slownik": null,
-        "osm": "—",
         "walidacja": "data ISO; ostrzeżenie, gdy w przeszłości"
       }
     },
@@ -676,7 +644,6 @@
         "przyklad": "2026-09-15",
         "uzasadnienie": "Pokazuje, czy urządzenie jest utrzymywane.",
         "slownik": null,
-        "osm": "—",
         "walidacja": "data ISO; nie w przyszłości"
       }
     },
@@ -695,7 +662,6 @@
         "przyklad": "Urząd Dzielnicy Śródmieście m.st. Warszawy",
         "uzasadnienie": "Wiadomo, kogo pytać o poprawki. Grupowanie po dysponencie służy do kampanii zachęcającej do publikacji.",
         "slownik": null,
-        "osm": "operator=*",
         "walidacja": "niepuste"
       }
     },
@@ -724,7 +690,6 @@
         "przyklad": "jst",
         "uzasadnienie": "Analiza pokrycia (np. ile AED mają szkoły) i kierowanie kampanii do grup dysponentów.",
         "slownik": "dysponent_typ",
-        "osm": "—",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -743,7 +708,6 @@
         "przyklad": "012345678",
         "uzasadnienie": "Jednoznacznie identyfikuje podmiot (format wg Standardu technicznego dane.gov.pl). Wyłączenie osób fizycznych ogranicza ryzyko RODO.",
         "slownik": null,
-        "osm": "—",
         "walidacja": "9 lub 14 cyfr"
       }
     },
@@ -762,7 +726,6 @@
         "przyklad": "225970927",
         "uzasadnienie": "Pozwala zadzwonić po klucz lub zgłosić usterkę. Format wg Standardu technicznego dane.gov.pl.",
         "slownik": null,
-        "osm": "phone=*",
         "walidacja": "wzorzec (\\+48)?\\d{9}"
       }
     },
@@ -781,7 +744,6 @@
         "przyklad": "sekretariat@przyklad.gov.pl",
         "uzasadnienie": "Kanał na zgłoszenia błędów w danych. Adres funkcyjny ogranicza ryzyko RODO.",
         "slownik": null,
-        "osm": "email=*",
         "walidacja": "poprawny e-mail"
       }
     },
@@ -800,7 +762,6 @@
         "przyklad": "2026-11-20",
         "uzasadnienie": "Najważniejsza miara aktualności. Pozwala odróżnić dane świeże od zalegających od lat i ustalić, który rekord wygrywa przy scalaniu.",
         "slownik": null,
-        "osm": "check_date=*",
         "walidacja": "data ISO; nie w przyszłości; ostrzeżenie, gdy > 12 mies."
       }
     },
@@ -824,7 +785,6 @@
         "przyklad": "wizja_lokalna",
         "uzasadnienie": "Wizja lokalna jest pewniejsza niż import. Pole wspiera ocenę jakości.",
         "slownik": "sposob_weryfikacji",
-        "osm": "—",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -843,7 +803,6 @@
         "przyklad": "DGP-4581",
         "uzasadnienie": "Wymóg zadania: oznaczenie źródła każdego rekordu i wskazanie zakresu referencyjnego źródeł.",
         "slownik": null,
-        "osm": "— (stała „OSM”)",
         "walidacja": "kod istnieje w rejestrze źródeł"
       }
     },
@@ -855,11 +814,10 @@
       "aed": {
         "grupa": "Jakość i pochodzenie",
         "obowiazkowosc": "Z",
-        "format": "np. node/123456789",
-        "przyklad": "node/123456789",
-        "uzasadnienie": "Pozwala wrócić do źródła i zsynchronizować zmiany (np. edycje w OSM).",
+        "format": "dowolny (np. numer wiersza lub ID w systemie dysponenta)",
+        "przyklad": "AED-9485",
+        "uzasadnienie": "Pozwala wrócić do źródła i zsynchronizować zmiany (np. zmiany w zbiorze dysponenta).",
         "slownik": null,
-        "osm": "typ/id obiektu OSM",
         "walidacja": "—"
       }
     },
@@ -872,8 +830,7 @@
         "required": true,
         "enum": [
           "CC0-1.0",
-          "CC-BY-4.0",
-          "ODbL-1.0"
+          "CC-BY-4.0"
         ]
       },
       "aed": {
@@ -881,9 +838,8 @@
         "obowiazkowosc": "O",
         "format": "identyfikator SPDX",
         "przyklad": "CC0-1.0",
-        "uzasadnienie": "Zbiór łączy dane na różnych licencjach (CC0, CC BY, ODbL). Licencja na poziomie rekordu pozwala wydzielić część bez share-alike i ogranicza ryzyko z ODbL.",
+        "uzasadnienie": "Zbiór łączy dane na różnych licencjach (CC0, CC BY). Licencja na poziomie rekordu pozwala ustalić licencję zbioru wynikowego i wymagane uznanie autorstwa.",
         "slownik": "licencja_rekordu",
-        "osm": "ODbL-1.0",
         "walidacja": "wartość ze słownika"
       }
     },
@@ -903,7 +859,6 @@
         "przyklad": "2026-11-21T10:15:00",
         "uzasadnienie": "Pozwala pobierać przyrostowo tylko zmiany. To co innego niż data weryfikacji: zmiana w zbiorze nie oznacza sprawdzenia urządzenia.",
         "slownik": null,
-        "osm": "timestamp węzła",
         "walidacja": "data i czas ISO"
       }
     },
@@ -922,7 +877,6 @@
         "przyklad": "Urządzenie w serwisie do 2026-12-15",
         "uzasadnienie": "Miejsce na wyjątki, których nie da się zapisać w słownikach.",
         "slownik": null,
-        "osm": "note=* / description=*",
         "walidacja": "—"
       }
     }

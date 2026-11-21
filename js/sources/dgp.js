@@ -101,7 +101,6 @@
     let kod = '';
     if (/^CC ?0( 1(\.0)?)?$/.test(t) || /PUBLIC DOMAIN|DOMENA PUBLICZNA/.test(t)) kod = 'CC0-1.0';
     else if (/^CC BY 4(\.0)?$/.test(t)) kod = 'CC-BY-4.0';
-    else if (/ODBL/.test(t)) kod = 'ODbL-1.0';
     const dozwolone = ((AED.wzorzec && AED.wzorzec.slowniki && AED.wzorzec.slowniki.licencja_rekordu) || [])
       .map(function (l) { return l.kod; });
     return dozwolone.length && dozwolone.indexOf(kod) < 0 ? '' : kod;
@@ -405,7 +404,7 @@
     meta.ostrzezenia = (meta.ostrzezenia || []).concat(dodatkoweOstrz);
     if (!meta.licencjaSugerowana) {
       meta.ostrzezenia.push('Licencja zbioru' + (zbior.licencjaOpis ? ' („' + zbior.licencjaOpis + '”)' : '') +
-        ' nie należy do licencji dopuszczonych we wzorcu (CC0 1.0, CC BY 4.0, ODbL 1.0) – ustal ją z dysponentem.');
+        ' nie należy do licencji dopuszczonych we wzorcu (CC0 1.0, CC BY 4.0) – ustal ją z dysponentem.');
     }
     postep('Wczytano ' + wynik.wiersze.length + ' ' + odmiana(wynik.wiersze.length, 'wiersz', 'wiersze', 'wierszy') + '.');
     return wynik;
