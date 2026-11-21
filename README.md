@@ -42,6 +42,6 @@ Generuje: `wzorzec/wzorcowy_zakres_danych_AED.xlsx`, `szablon_aed.csv`, `przykla
 
 - [x] Część 1: szkielet, router, źródło „Plik”, rejestr źródeł
 - [x] Część 2: OpenStreetMap (Overpass) i dane.gov.pl (API) – testy: `node tests/zdalne.test.js`
-- [ ] Część 3: mapowanie kolumn, normalizacja, walidacja
+- [x] Część 3: mapowanie kolumn, normalizacja, walidacja – testy: `node tests/czesc3.test.js`
 - [ ] Część 4: deduplikacja, eksport, instrukcja publikacji
 - [ ] Część 5: formularz dysponenta, mapa, testy, wdrożenie

@@ -31,6 +31,8 @@
     if (!sprawdzZaleznosci()) return;
     AED.ui.zrodla.init();
     if (AED.ui.zdalne) AED.ui.zdalne.init();
+    if (AED.ui.mapowanie) AED.ui.mapowanie.init();
+    if (AED.ui.walidacja) AED.ui.walidacja.init();
     AED.router.start();
   });
 })(window.AED);
