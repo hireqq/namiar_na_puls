@@ -138,11 +138,19 @@ test('duplikaty: Krosno + Przemyśl + Marki (prawdziwe dane) – tylko grupy nis
   // Krosno: dwa AED pod tym samym adresem z różnymi numerami -> niska (nie jeden AED)
   const k = w.grupy.find(function (x) { return x.rekordy.every(function (id) { return /^dgp-krosno/.test(id); }); });
   assert.ok(k && k.pewnosc === 'niska');
-  // Marki wiersz 8 ma współrzędne z Krosna -> punkt odstający
-  assert.strictEqual(w.odstajace.length, 1);
-  const o = w.odstajace[0];
-  assert.strictEqual(o.rekordId, 'dgp-marki:8');
+  // Marki wiersz 8 ma współrzędne z Krosna -> punkt odstający (+ te same współrzędne co Krosno wiersz 2)
+  // Marki wiersze 6 i 7 – identyczne współrzędne przy różnych adresach
+  const odst = {};
+  w.odstajace.forEach(function (x) { odst[x.rekordId] = x; });
+  assert.deepStrictEqual(Object.keys(odst).sort(), ['dgp-krosno:2', 'dgp-marki:6', 'dgp-marki:7', 'dgp-marki:8']);
+  const o = odst['dgp-marki:8'];
   assert.strictEqual(o.kod, 'DALEKO_OD_ZBIORU');
+  const ts = o.dodatkowe.find(function (x) { return x.kod === 'TE_SAME_WSPOLRZEDNE'; });
+  assert.ok(ts && /DGP-01 wiersz 2/.test(ts.komunikat), JSON.stringify(o.dodatkowe));
+  assert.strictEqual(odst['dgp-marki:6'].kod, 'TE_SAME_WSPOLRZEDNE');
+  assert.ok(/DGP-03 wiersz 7/.test(odst['dgp-marki:6'].komunikat));
+  assert.strictEqual(odst['dgp-krosno:2'].kod, 'TE_SAME_WSPOLRZEDNE');
+  assert.deepStrictEqual(zwykly(odst['dgp-krosno:2'].dodatkowe), []);
   assert.ok(o.odlegloscKm > 250 && o.odlegloscKm < 320);
   assert.ok(/km od pozostałych punktów/.test(o.komunikat));
   // jego para z Krosnem (0 m) ma niską pewność – różne miejscowości
@@ -151,7 +159,7 @@ test('duplikaty: Krosno + Przemyśl + Marki (prawdziwe dane) – tylko grupy nis
   // scalenie bez decyzji niczego nie łączy
   const s = D.scal(rek3, w.grupy, {});
   assert.strictEqual(s.rekordy.length, 50);
-  assert.deepStrictEqual(zwykly(s.raport), { grupy: 4, scalone: 0, rozdzielone: 4, usuniete: 0, pominiete: 0, automatycznie: 0 });
+  assert.deepStrictEqual(zwykly(s.raport), { grupy: 4, scalone: 0, rozdzielone: 4, usuniete: 0, pominiete: 0, automatycznie: 0, noweId: [] });
 });
 
 test('duplikaty: Krosno (dane.gov.pl) + syntetyczny OSM przesunięty o 5–40 m', async function () {
@@ -428,14 +436,20 @@ test('eksport: kolumny i CSV (RFC 4180, CRLF, polskie znaki, ochrona przed CSV i
   assert.strictEqual(w0.kod_terc_gminy, '0261011', 'zero wiodące');
   assert.strictEqual(w0.telefon_kontaktowy, '+48123456789', 'telefon z + to nie formuła');
   assert.strictEqual(w0.ulica, 'Źdźbło');
-  assert.strictEqual(w0.uwagi, '\'=HYPERLINK("http://zly.example","klik")', 'formuła zneutralizowana');
-  assert.strictEqual(w1.nazwa, '\'-1 piętro, @galeria');
-  assert.strictEqual(w1.opis_lokalizacji, '\'+ obok windy');
+  assert.strictEqual(w0.uwagi, '=HYPERLINK("http://zly.example","klik")', 'plik dla portalu: dane bez zmian (Standard)');
+  assert.strictEqual(w1.nazwa, '-1 piętro, @galeria');
+  // wersja dla Excela (BOM) – domyślnie z ochroną przed formułami; liczby i telefon bez zmian
+  const px = ctx.Papa.parse(E.csv(r, { bom: true }).replace(/^\uFEFF/, ''), { header: true, skipEmptyLines: true }).data;
+  assert.strictEqual(px[0].uwagi, '\'=HYPERLINK("http://zly.example","klik")', 'formuła zneutralizowana');
+  assert.strictEqual(px[1].nazwa, '\'-1 piętro, @galeria');
+  assert.strictEqual(px[1].opis_lokalizacji, '\'+ obok windy');
+  assert.strictEqual(px[0].kondygnacja, '-1', 'ujemna kondygnacja bez apostrofu');
+  assert.strictEqual(px[0].telefon_kontaktowy, '+48123456789');
+  assert.strictEqual(ctx.Papa.parse(E.csv(r, { bom: true, ochrona: false }).replace(/^\uFEFF/, ''), { header: true }).data[0].uwagi.charAt(0), '=');
+  assert.strictEqual(ctx.Papa.parse(E.csv(r, { ochrona: true }), { header: true }).data[1].nazwa, '\'-1 piętro, @galeria');
   assert.strictEqual(w1.uwagi, 'Zażółć gęślą jaźń; ŻÓŁW');
   assert.strictEqual(w1.kondygnacja, '0');
   assert.strictEqual(p.data[2].szerokosc_geograficzna, '');
-  // bez ochrony – wartości 1:1
-  assert.strictEqual(ctx.Papa.parse(E.csv(r, { ochrona: false }), { header: true }).data[0].uwagi, '=HYPERLINK("http://zly.example","klik")');
   // round-trip przez mapowanie aplikacji: plik CSV z eksportu wczytany jako źródło daje te same wartości
   const z = { id: 'rt', kod: 'PLIK-99', typ: 'PLIK', licencja: 'CC0-1.0', kolumny: p.meta.fields, wiersze: p.data, meta: {} };
   const rr = M.zastosuj(z, M.podpowiedz(z)).rekordy;
@@ -530,7 +544,8 @@ test('eksport: rejestr źródeł (struktura jak AED.wzorzec.zrodla) i CSV', asyn
 test('eksport: Data Package (Frictionless) ze schematem', function () {
   const lic = E.licencjaZbioru(rekordyEksportu());
   const dp = JSON.parse(E.datapackage({ tytul: 'Defibrylatory AED – Gmina Przykładowo', opis: 'Opis', slowaKluczowe: ['AED', 'wzorzec-aed'], licencja: lic, data: '2026-11-21' }));
-  assert.strictEqual(dp.profile, 'tabular-data-package');
+  assert.strictEqual(dp.profile, 'data-package', 'jest zasób GeoJSON – nie każdy zasób jest tabelą');
+  assert.strictEqual(JSON.parse(E.datapackage({ tytul: 'x' }, [{ plik: 'a.csv' }])).profile, 'tabular-data-package');
   assert.ok(/^[a-z0-9-]+$/.test(dp.name), dp.name);
   assert.strictEqual(dp.licenses[0].name, 'CC0-1.0');
   assert.strictEqual(dp.resources.length, 2);
@@ -545,6 +560,7 @@ test('eksport: Data Package (Frictionless) ze schematem', function () {
   const dp2 = JSON.parse(E.datapackage({ tytul: 'x' }, [{ plik: 'a.csv' }, { plik: 'a.xlsx', format: 'xlsx' }]));
   assert.strictEqual(dp2.resources[1].format, 'xlsx');
   assert.notStrictEqual(dp2.resources[0].name, dp2.resources[1].name);
+  assert.strictEqual(JSON.parse(E.datapackage({ tytul: 'x' }, [{ nazwa: 'aed-xlsx', plik: 'a.xlsx' }])).resources[0].name, 'aed-xlsx', 'bez „-xlsx-xlsx”');
 });
 
 function metadanePelne() {
@@ -759,10 +775,13 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
   assert.ok(zdarzenia.some(function (z) { return z.e === 'duplikaty:zmiana' && z.p.grupaId === wys[0].id; }));
   assert.strictEqual(store.wynik.length, 42 - wys.length + 1);
   assert.throws(function () { store.ustawDecyzje('x', { status: 'cos' }); }, /scal/);
-  // przelicz: te same id grup, decyzja obowiązuje
+  // przelicz: te same id grup; para „rozdziel” nie jest już łączona – jej grupa znika, decyzja jest niedopasowana
   store.przelicz();
   assert.ok(store.duplikaty !== d, 'duplikaty policzone od nowa po zmianie rekordów');
-  assert.deepStrictEqual(store.duplikaty.grupy.map(function (g) { return g.id; }), d.grupy.map(function (g) { return g.id; }));
+  assert.deepStrictEqual(store.duplikaty.grupy.map(function (g) { return g.id; }), d.grupy.map(function (g) { return g.id; }).filter(function (id) { return id !== wys[0].id; }));
+  assert.strictEqual(store.duplikaty.podsumowanie.decyzjeNiedopasowane, 1);
+  assert.strictEqual(store.decyzjeNiedopasowane[0].grupaId, wys[0].id);
+  assert.deepStrictEqual(zwykly(store.decyzjeNiedopasowane[0].rekordy), zwykly(wys[0].rekordy));
   assert.strictEqual(store.wynik.length, 42 - wys.length + 1);
   // ręczna poprawka trafia do wyniku
   const glowny = store.duplikaty.grupy.find(function (g) { return g.id === wys[1].id; }).glowny;
@@ -771,6 +790,8 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
   // cofnięcie decyzji
   store.ustawDecyzje(wys[0].id, null);
   assert.deepStrictEqual(zwykly(store.decyzje), {});
+  store.znajdzDuplikaty();
+  assert.strictEqual(store.duplikaty.podsumowanie.decyzjeNiedopasowane, 0);
   assert.strictEqual(store.przeliczWynik().rekordy.length, 42 - wys.length);
   // odstające uznane za poprawne przetrwają ponowne wyszukiwanie; zmiana współrzędnych unieważnia
   const idOdst = store.rekordy[0]._id;
@@ -811,6 +832,104 @@ test('store: znajdzDuplikaty, decyzje (przetrwają przelicz), wynik, zdarzenia',
   store.zrodla.forEach(function (z) { store.usunZrodlo(z.id); });
   assert.strictEqual(store.duplikaty.grupy.length, 0);
   assert.strictEqual(store.wynik.length, 0);
+});
+
+// ================================================================ przegląd FRONT (poprawki)
+test('duplikaty: ten sam id_aed daleko od siebie = niska; po rozdzieleniu unikalne id_aed (raport.noweId)', function () {
+  const a = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 50.0, dlugosc_geograficzna: 20.0 });
+  const b = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 51.18, dlugosc_geograficzna: 20.0, id_aed: a.id_aed });
+  b._zrodlo = 'osm'; b._kodZrodla = 'OSM-01';
+  b._surowy = { ref: a.id_aed }; // id b pochodzi ze źródła – zostaje przy b, mimo niższego priorytetu
+  const zr = [{ id: 'test', priorytet: 1 }, { id: 'osm', priorytet: 3 }];
+  const w = D.znajdz([a, b], { zrodla: zr });
+  assert.strictEqual(w.grupy.length, 1);
+  assert.strictEqual(w.grupy[0].pewnosc, 'niska');
+  assert.ok(w.grupy[0].powody.some(function (t) { return /ten sam id_aed, ale 131,\d km od siebie – możliwe skopiowanie identyfikatora/.test(t); }), w.grupy[0].powody.join(' | '));
+  const s = D.scal([a, b], w.grupy, {}, { zrodla: zr });
+  assert.strictEqual(s.rekordy.length, 2, 'urządzenie nie znika');
+  assert.strictEqual(s.raport.noweId.length, 1);
+  const z = s.raport.noweId[0];
+  assert.strictEqual(z.rekordId, a._id, 'nowy id dostaje rekord, którego id nie pochodzi ze źródła');
+  assert.strictEqual(z.stare, a.id_aed);
+  assert.ok(RE_UUID.test(z.nowe) && z.nowe.charAt(14) === '4');
+  assert.ok(/OSM-01 wiersz/.test(z.powod));
+  assert.notStrictEqual(s.rekordy[0].id_aed, s.rekordy[1].id_aed);
+  assert.strictEqual(a.id_aed, b.id_aed, 'rekordy wejściowe bez zmian');
+  assert.strictEqual(D.scal([a, b], w.grupy, {}, { zrodla: zr }).raport.noweId[0].nowe, z.nowe, 'ten sam nowy id przy ponownym przeliczeniu');
+  // bliskie rekordy z tym samym id – wysoka; decyzja „rozdziel” -> nowy id dla rekordu o niższym priorytecie
+  const c = rek({ nazwa: 'Szkoła', ulica: 'Polna', numer_budynku: '1', szerokosc_geograficzna: 50.00005, dlugosc_geograficzna: 20.0, id_aed: a.id_aed });
+  c._zrodlo = 'osm'; c._kodZrodla = 'OSM-01';
+  const w2 = D.znajdz([a, c], { zrodla: zr });
+  assert.strictEqual(w2.grupy[0].pewnosc, 'wysoka');
+  const dec = {}; dec[w2.grupy[0].id] = { status: 'rozdziel' };
+  const s2 = D.scal([a, c], w2.grupy, dec, { zrodla: zr });
+  assert.strictEqual(s2.raport.noweId.length, 1);
+  assert.strictEqual(s2.raport.noweId[0].rekordId, c._id, 'niższy priorytet (OSM) dostaje nowy id');
+  // scalony rekord: data aktualizacji = teraz
+  const s3 = D.scal([a, c], w2.grupy, {}, { zrodla: zr, teraz: '2026-11-21T12:34:56' });
+  assert.strictEqual(s3.rekordy[0].data_aktualizacji_rekordu, '2026-11-21T12:34:56');
+  assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(D.scal([a, c], w2.grupy, {}).rekordy[0].data_aktualizacji_rekordu));
+});
+
+test('duplikaty: pary „rozdziel” nie są łączone; grupa z taką parą nie scala się automatycznie', function () {
+  const a = rek({ nazwa: 'Dworzec', ulica: 'Kolejowa', numer_budynku: '1', szerokosc_geograficzna: 50.2, dlugosc_geograficzna: 20.2 });
+  const b = rek({ nazwa: 'Dworzec', ulica: 'Kolejowa', numer_budynku: '1', szerokosc_geograficzna: 50.20004, dlugosc_geograficzna: 20.2 });
+  const c = rek({ nazwa: 'Dworzec', ulica: 'Kolejowa', numer_budynku: '1', szerokosc_geograficzna: 50.20002, dlugosc_geograficzna: 20.2 });
+  assert.strictEqual(D.znajdz([a, b]).grupy[0].pewnosc, 'wysoka');
+  assert.strictEqual(D.znajdz([a, b], { rozdzielone: [[b._id, a._id]] }).grupy.length, 0, 'para rozdzielona – brak grupy');
+  const w = D.znajdz([a, b, c], { rozdzielone: [[a._id, b._id]] });
+  assert.strictEqual(w.grupy.length, 1);
+  const g = w.grupy[0];
+  assert.strictEqual(g.zawieraRozdzielone, true);
+  assert.notStrictEqual(g.pewnosc, 'wysoka');
+  assert.ok(g.powody.some(function (t) { return /oznaczone wcześniej jako różne/.test(t); }));
+  assert.strictEqual(D.scal([a, b, c], w.grupy, {}).rekordy.length, 3, 'bez decyzji nic nie jest scalane');
+  assert.strictEqual(D.kluczPary(a._id, b._id), D.kluczPary(b._id, a._id));
+});
+
+test('duplikaty: krawędzie „niska” między grupami nie znikają (powiazane, powody)', function () {
+  // a+b: duplikat (ten sam adres); c: 20 m dalej, inne piętro niż a – niska między grupą a singlem z grupą c+d
+  const a = rek({ nazwa: 'Hala', ulica: 'Długa', numer_budynku: '5', kondygnacja: 0, szerokosc_geograficzna: 50.3, dlugosc_geograficzna: 20.3 });
+  const b = rek({ nazwa: 'Hala', ulica: 'Długa', numer_budynku: '5', szerokosc_geograficzna: 50.30003, dlugosc_geograficzna: 20.3 });
+  const c = rek({ nazwa: 'Basen', ulica: 'Krótka', numer_budynku: '9', kondygnacja: 1, szerokosc_geograficzna: 50.30018, dlugosc_geograficzna: 20.3 });
+  const d = rek({ nazwa: 'Basen', ulica: 'Krótka', numer_budynku: '9', szerokosc_geograficzna: 50.30021, dlugosc_geograficzna: 20.3 });
+  const w = D.znajdz([a, b, c, d]);
+  const ga = grupaZ(w, a._id), gc = grupaZ(w, c._id);
+  assert.ok(ga && gc && ga !== gc);
+  assert.ok(ga.powiazane.indexOf(gc.id) >= 0 && gc.powiazane.indexOf(ga.id) >= 0, JSON.stringify(zwykly(w.grupy)));
+  assert.ok(gc.powody.some(function (t) { return /blisko rekordu .* z innej grupy/.test(t); }));
+});
+
+test('wydajność: 3000 rekordów z id_lokalne „AED” u jednego dysponenta i 20 000 punktów na 1 km²', function () {
+  let ziarno = 777;
+  const los = function () {
+    ziarno = (ziarno + 0x6D2B79F5) | 0;
+    let t = Math.imul(ziarno ^ (ziarno >>> 15), 1 | ziarno);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const ulice = ['Długa', 'Krótka', 'Polna', 'Leśna', 'Szkolna', 'Kościelna', 'Ogrodowa', 'Lipowa'];
+  const lista = [];
+  for (let i = 0; i < 3000; i++) {
+    lista.push({ _id: 'a:' + i, _zrodlo: 'gmina', _kodZrodla: 'PLIK-01', id_aed: 'x' + i, id_lokalne: 'AED', dysponent_nazwa: 'Gmina X',
+      nazwa: 'Punkt ' + i, ulica: ulice[i % 8], numer_budynku: String(i), szerokosc_geograficzna: 50 + los() * 0.05, dlugosc_geograficzna: 20 + los() * 0.07 });
+  }
+  let t0 = Date.now();
+  const w = D.znajdz(lista);
+  const czas1 = Date.now() - t0;
+  assert.ok(czas1 < 3000, czas1 + ' ms');
+  assert.ok(w.grupy.every(function (g) { return g.rekordy.length < 100; }), 'brak grupy-olbrzyma');
+  assert.ok(w.podsumowanie.ostrzezenia.some(function (o) { return o.kod === 'NIEIDENTYFIKUJACY' && o.liczba === 3000 && /AED/.test(o.komunikat); }));
+  const gesto = [];
+  for (let i = 0; i < 20000; i++) {
+    gesto.push({ _id: 'g:' + i, _zrodlo: 'z' + (i % 3), _kodZrodla: 'PLIK-0' + (i % 3), id_aed: 'y' + i, nazwa: 'Lokal ' + i,
+      ulica: ulice[i % 8], numer_budynku: String(1 + i % 400), szerokosc_geograficzna: 52.2 + los() * 0.009, dlugosc_geograficzna: 21.0 + los() * 0.0147 });
+  }
+  t0 = Date.now();
+  const w2 = D.znajdz(gesto);
+  const czas2 = Date.now() - t0;
+  statystyki.push(['wydajność skrajna', '3000 × id_lokalne „AED”: ' + czas1 + ' ms; 20 000 punktów na 1 km²: ' + czas2 + ' ms (' + w2.grupy.length + ' grup)']);
+  assert.ok(czas2 < 8000, czas2 + ' ms');
 });
 
 // ================================================================ wydajność

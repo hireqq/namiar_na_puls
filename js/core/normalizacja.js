@@ -13,7 +13,7 @@
   // ------------------------------------------------------------ pomocnicze
   function tekst(t) {
     if (t === null || t === undefined) return '';
-    if (t instanceof Date) return isNaN(t) ? '' : dataLokalna(t);
+    if (Object.prototype.toString.call(t) === "[object Date]") return isNaN(t) ? '' : dataLokalna(t);
     return String(t).replace(/[   ]/g, ' ').replace(/\s+/g, ' ').trim();
   }
   /** Czy wartość oznacza brak danych („-”, „brak”, „b.d.” …). */
@@ -350,7 +350,7 @@
   /** -> 'YYYY-MM-DD' albo null. Obsługuje ISO, dd.mm.yyyy, d.m.yy, dd/mm/yyyy, yyyy.mm.dd, mm/yyyy (koniec miesiąca),
       „15 marca 2026”, liczbę seryjną Excela i obiekt Date. */
   function data(t) {
-    if (t instanceof Date) return isNaN(t) ? null : dataLokalna(t);
+    if (Object.prototype.toString.call(t) === "[object Date]") return isNaN(t) ? null : dataLokalna(t);
     if (typeof t === 'number') return t > 20000 && t < 80000 ? excel(t).slice(0, 10) : null;
     const s = tekst(t).replace(/\s*r\.?$/i, '');
     if (!s) return null;
@@ -378,7 +378,7 @@
 
   /** -> 'YYYY-MM-DDThh:mm:ss' albo null (strefa czasowa jest pomijana). */
   function dataCzas(t) {
-    if (t instanceof Date) return isNaN(t) ? null : dataLokalna(t) + 'T' + dwie(t.getHours()) + ':' + dwie(t.getMinutes()) + ':' + dwie(t.getSeconds());
+    if (Object.prototype.toString.call(t) === "[object Date]") return isNaN(t) ? null : dataLokalna(t) + 'T' + dwie(t.getHours()) + ':' + dwie(t.getMinutes()) + ':' + dwie(t.getSeconds());
     if (typeof t === 'number') return t > 20000 && t < 80000 ? excel(t) : null;
     const s = tekst(t);
     if (!s) return null;

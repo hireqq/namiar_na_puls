@@ -13,6 +13,7 @@
     // część 4: duplikaty i wynik scalenia
     duplikaty: null, opcjeDuplikatow: null,
     decyzje: new Map(),               // id grupy -> { status, glowny?, wartosci? } – przetrwa przelicz() (id grupy jest stałe)
+    decyzjeRekordy: new Map(),        // id grupy -> [_id] rekordów grupy w chwili decyzji (pary „rozdziel”, decyzje niedopasowane)
     wynik: null, wynikNieaktualny: true,
     odstajaceOk: new Map()            // rekordId -> {lat, lon} punktu uznanego za poprawny (zmiana współrzędnych unieważnia)
   };
@@ -214,6 +215,10 @@
       });
     },
 
+    /** Decyzje bez pasującej grupy w bieżącym wyniku: [{ grupaId, decyzja, rekordy: [_id] }] (np. po „rozdziel” grupa znika,
+        bo jej pary nie są już łączone; cofnięcie: ustawDecyzje(grupaId, null) i ponowne wyszukanie). */
+    get decyzjeNiedopasowane() { return niedopasowane(); },
+
     /** Punkty odstające uznane za poprawne: [{ rekordId, lat, lon }]. */
     get odstajaceOk() {
       const t = [];
@@ -290,7 +295,9 @@
   };
 
   function zapiszDecyzje(grupaId, decyzja) {
-    if (!decyzja) { state.decyzje.delete(grupaId); return; }
+    if (!decyzja) { state.decyzje.delete(grupaId); state.decyzjeRekordy.delete(grupaId); return; }
+    const g = state.duplikaty && state.duplikaty.grupy.find(function (x) { return x.id === grupaId; });
+    if (g) state.decyzjeRekordy.set(grupaId, g.rekordy.slice());
     const d = { status: decyzja.status };
     if (decyzja.glowny) d.glowny = decyzja.glowny;
     if (decyzja.wartosci && Object.keys(decyzja.wartosci).length) d.wartosci = Object.assign({}, decyzja.wartosci);
@@ -301,7 +308,28 @@
     state.opcjeDuplikatow = Object.assign({}, o);
     delete state.opcjeDuplikatow.zrodla; delete state.opcjeDuplikatow.postep;
     o.zrodla = state.zrodla;
+    o.rozdzielone = paryRozdzielone();
     return o;
+  }
+  /** Pary rekordów z grup oznaczonych „rozdziel” – nowe wyszukiwanie ich nie łączy. */
+  function paryRozdzielone() {
+    const pary = [];
+    state.decyzje.forEach(function (d, gid) {
+      if (d.status !== 'rozdziel') return;
+      const ids = state.decyzjeRekordy.get(gid) || [];
+      for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) pary.push([ids[a], ids[b]]);
+    });
+    return pary;
+  }
+  /** Decyzje, których id grupy nie ma w bieżącym wyniku wyszukiwania. */
+  function niedopasowane() {
+    if (!state.duplikaty) return [];
+    const ids = new Set(state.duplikaty.grupy.map(function (g) { return g.id; }));
+    const t = [];
+    state.decyzje.forEach(function (d, gid) {
+      if (!ids.has(gid)) t.push({ grupaId: gid, decyzja: d, rekordy: (state.decyzjeRekordy.get(gid) || []).slice() });
+    });
+    return t;
   }
   /** Pole `zaakceptowany` w odstających wg listy punktów uznanych za poprawne (te same współrzędne). */
   function oznaczOdstajace(wynik) {
@@ -315,6 +343,7 @@
   function zapiszDuplikaty(w) {
     state.duplikaty = w;
     oznaczOdstajace(w);
+    w.podsumowanie.decyzjeNiedopasowane = niedopasowane().length;
     AED.emit('duplikaty:zmiana', { akcja: 'znaleziono', podsumowanie: w.podsumowanie });
     oznaczWynik();
     return w;

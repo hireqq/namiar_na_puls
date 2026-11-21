@@ -42,6 +42,7 @@
     pominBledy: false,
     pominOdbl: false,
     wynik: null,          // {rekordy, raport} ze store
+    brudne: true,         // wynik do przeliczenia (zmiana decyzji, rekordów, opcji)
     bledne: new Set(),    // _id rekordów wynikowych z błędami
     eksport: [],          // rekordy do eksportu (po opcjach)
     metadane: null,
@@ -85,34 +86,54 @@
   }
 
   // ------------------------------------------------------------ wynik i opcje
-  function przelicz() {
-    let w = null;
-    if (store.przeliczWynik) w = store.przeliczWynik();
-    if (!w) {
-      const x = store.wynik;
-      w = Array.isArray(x) ? { rekordy: x, raport: store.raportScalenia || null } : (x || { rekordy: store.rekordy || [], raport: null });
-    }
-    st.wynik = w;
-    st.bledne = new Set();
+  /** Wynik scalenia (leniwy w magazynie). Bez OSM: scalanie od nowa tylko z rekordów spoza ODbL – urządzenie,
+      któremu OSM dopisał jedno pole, zostaje (z wartościami z pozostałych źródeł). Stanu magazynu nie zmienia. */
+  function bazowy() {
+    if (st.pominOdbl && store.wynikDla) return store.wynikDla(function (r) { return r.licencja_rekordu !== 'ODbL-1.0'; });
+    const x = store.wynik;
+    if (Array.isArray(x)) return { rekordy: x, raport: store.raportScalenia || null };
+    if (x && x.rekordy) return x;
+    return store.przeliczWynik ? store.przeliczWynik(true) : { rekordy: store.rekordy || [], raport: null };
+  }
+  /** Rekordy z błędami: problemy z kroku 3, a od nowa walidujemy tylko rekordy zmienione przy scalaniu
+      (scalone i te z nowym id_aed). Bez wyniku kroku 3 – walidacja całości. */
+  function policzBledne(w) {
     const W = AED.walidacja;
-    if (W && W.waliduj) {
-      const r = W.waliduj(w.rekordy) || {};
-      (r.problemy || []).forEach(function (p) { if (p.poziom === 'blad') st.bledne.add(p.rekordId); });
+    const bledne = new Set();
+    if (!W) return bledne;
+    const krok3 = AED.ui.walidacja && AED.ui.walidacja.stan;
+    const noweId = new Set(((w.raport && w.raport.noweId) || []).map(function (x) { return x.rekordId; }));
+    if (!krok3 || !krok3.gotowe || !krok3.problemy || !W.walidujRekord) {
+      const r = W.waliduj ? (W.waliduj(w.rekordy) || {}) : {};
+      (r.problemy || []).forEach(function (p) { if (p.poziom === 'blad') bledne.add(p.rekordId); });
+      return bledne;
     }
+    w.rekordy.forEach(function (r) {
+      const lista = (r._scalony || noweId.has(r._id)) ? (W.walidujRekord(r) || []) : (krok3.problemy.get(r._id) || []);
+      if (lista.some(function (p) { return p.poziom === 'blad'; })) bledne.add(r._id);
+    });
+    return bledne;
+  }
+  function przelicz() {
+    st.wynik = bazowy();
+    st.bledne = policzBledne(st.wynik);
+    st.brudne = false;
     filtruj();
   }
   function filtruj() {
     st.eksport = (st.wynik ? st.wynik.rekordy : []).filter(function (r) {
-      if (st.pominBledy && st.bledne.has(r._id)) return false;
-      if (st.pominOdbl && r.licencja_rekordu === 'ODbL-1.0') return false;
-      return true;
+      if (st.pominOdbl && r.licencja_rekordu === 'ODbL-1.0') return false; // zapas, gdy magazyn nie ma wynikDla
+      return !(st.pominBledy && st.bledne.has(r._id));
     });
   }
   function licencja() {
     if (!E() || !E().licencjaZbioru) return {};
     try { return E().licencjaZbioru(st.eksport, store.zrodla) || {}; } catch (e) { console.error(e); return {}; }
   }
-  function maOdbl() { return !!(st.wynik && st.wynik.rekordy.some(function (r) { return r.licencja_rekordu === 'ODbL-1.0'; })); }
+  function maOdbl() {
+    if (st.pominOdbl) return true; // opcja włączona – pokazujemy ją dalej, żeby dało się ją wyłączyć
+    return !!(st.wynik && st.wynik.rekordy.some(function (r) { return r.licencja_rekordu === 'ODbL-1.0'; }));
+  }
 
   /** Obszar zbioru do tytułu: jedna miejscowość, kilka miejscowości albo województwo. */
   function obszar(rekordy) {
@@ -196,6 +217,20 @@
       kont.appendChild(h('p', null, 'Scalono ' + liczba(rap.scalone || 0) + ' ' + odmiana(rap.scalone || 0, 'grupę', 'grupy', 'grup') +
         ' duplikatów (' + liczba(rap.usuniete || Math.max(0, wej - po)) + ' ' + odmiana(rap.usuniete || Math.max(0, wej - po), 'rekord połączony', 'rekordy połączone', 'rekordów połączonych') +
         ' z innymi). Jako różne urządzenia zostawiono ' + liczba(rap.rozdzielone || 0) + ' ' + odmiana(rap.rozdzielone || 0, 'grupę', 'grupy', 'grup') + '.'));
+      const nowe = rap.noweId || [];
+      if (nowe.length) {
+        kont.appendChild(h('div', { class: 'alert alert--warn' },
+          h('p', null, liczba(nowe.length) + ' ' + odmiana(nowe.length, 'rekordowi', 'rekordom', 'rekordom') +
+            ' nadaliśmy nowy identyfikator id_aed. Miały taki sam identyfikator jak inne urządzenie, a zdecydowano, że to różne urządzenia. ' +
+            'Przekaż nowe identyfikatory dysponentom, aby używali ich przy kolejnych aktualizacjach.'),
+          h('details', null, h('summary', null, 'Pokaż zmienione identyfikatory'),
+            h('ul', { class: 'wyn-noweid' }, nowe.slice(0, 100).map(function (x) {
+              const r = store.rekord ? store.rekord(x.rekordId) : null;
+              return h('li', null, r ? h('code', null, r._kodZrodla) : null, r ? ', wiersz ' + r._wiersz + ': ' : '',
+                h('code', null, String(x.stare || '—')), ' → ', h('code', null, String(x.nowe || '—')), x.powod ? ' (' + x.powod + ')' : null);
+            })),
+            nowe.length > 100 ? h('p', { class: 'meta' }, 'Pokazano 100 z ' + liczba(nowe.length) + '. Wszystkie są w pliku z danymi.') : null)));
+      }
       if (bez) kont.appendChild(h('p', { class: 'alert alert--warn' }, liczba(bez) + ' ' + odmiana(bez, 'grupa', 'grupy', 'grup') +
         ' o średniej lub niskiej pewności nie ma decyzji – rekordy zostały osobno. ', h('a', { href: '#walidacja' }, 'Przejrzyj je w kroku 3'), '.'));
     }
@@ -209,7 +244,7 @@
       h('p', { class: 'hint', id: 'wyn-pomin-bledy-pomoc' }, 'Domyślnie dołączamy wszystkie rekordy. Rekordy z błędami mogą nie spełniać wzorca, ale ich pominięcie oznacza, że tych urządzeń nie będzie w zbiorze.'),
       maOdbl() ? [h('div', { class: 'radio' },
         h('input', { type: 'checkbox', id: 'wyn-pomin-odbl', checked: st.pominOdbl, 'aria-describedby': 'wyn-pomin-odbl-pomoc',
-          onchange: function (e) { st.pominOdbl = e.target.checked; poZmianieOpcji(e.target.id, e.target.checked ? 'Rekordy z OpenStreetMap zostaną pominięte.' : 'Rekordy z OpenStreetMap zostaną dołączone.'); } }),
+          onchange: function (e) { st.pominOdbl = e.target.checked; przelicz(); poZmianieOpcji(e.target.id, e.target.checked ? 'Rekordy z OpenStreetMap zostaną pominięte.' : 'Rekordy z OpenStreetMap zostaną dołączone.'); } }),
         h('label', { for: 'wyn-pomin-odbl' }, 'Pomiń rekordy z OpenStreetMap (licencja ODbL)')),
       h('p', { class: 'hint', id: 'wyn-pomin-odbl-pomoc' }, 'Wtedy zbiór nie podlega warunkowi „na tych samych warunkach” licencji ODbL. Szczegóły w sekcji „Licencja zbioru”.')] : null);
     kont.appendChild(opcje);
@@ -495,7 +530,7 @@
       case 'csv-excel': return e.csv(r, { bom: true });
       case 'xlsx': return e.xlsx(r, { metadane: st.metadane, zrodla: store.zrodla });
       case 'json': return tekst(e.json(r));
-      case 'geojson': return tekst(e.geojson(r));
+      case 'geojson': return tekst(e.geojson(r, { tylkoZeWspolrzednymi: true }));
       case 'rejestr': { const x = e.rejestrZrodel(store.zrodla, r); return typeof x === 'string' ? x : x.csv; }
       case 'datapackage': return tekst(e.datapackage(metadaneEksportu(), zasoby()));
       case 'xml': return e.metadaneXml(metadaneEksportu(), zasoby());
@@ -514,6 +549,18 @@
     }
     const nazwa = def.kod === 'csv-excel' ? nazwaPliku('csv').replace(/\.csv$/, '_excel.csv') : nazwaPliku(def.kod);
     const kontId = 'wyn-p-' + (def.kod === 'csv-excel' ? 'csv' : def.kod) + '-stan';
+    const przycisk = $('wyn-p-' + def.kod);
+    if (przycisk && przycisk.getAttribute('aria-disabled') === 'true') return;
+    const stanEl = $(kontId);
+    if (stanEl) { stanEl.hidden = false; stanEl.textContent = 'Przygotowuję plik ' + nazwa + '…'; }
+    if (przycisk) { przycisk.setAttribute('aria-disabled', 'true'); przycisk.classList.add('is-busy'); }
+    if (st.eksport.length > 5000) oglos('Przygotowuję plik ' + nazwa + '. Przy dużym zbiorze może to potrwać kilka sekund.');
+    // przeglądarka najpierw pokazuje komunikat, dopiero potem generujemy plik (XLSX dla 50 tys. rekordów to kilka sekund)
+    setTimeout(function () { generujIPobierz(def, nazwa, kontId, przycisk); }, 30);
+  }
+
+  function generujIPobierz(def, nazwa, kontId, przycisk) {
+    const odblokuj = function () { if (przycisk) { przycisk.removeAttribute('aria-disabled'); przycisk.classList.remove('is-busy'); } };
     try {
       const dane = tresc(def.kod);
       const n = pobierz(nazwa, dane, def.typ);
@@ -521,7 +568,9 @@
       const el = $(kontId);
       if (el) { el.hidden = false; el.textContent = 'Pobrano plik ' + nazwa + ' (' + rozmiar(n) + ').'; }
       oglos('Pobrano plik ' + nazwa + ', ' + rozmiar(n) + '.');
+      odblokuj();
     } catch (err) {
+      odblokuj();
       console.error(err);
       st.bledyPobrania[def.kod] = 'Nie udało się przygotować pliku: ' + (err && err.message ? err.message : err);
       renderujPliki();
@@ -584,7 +633,7 @@
       return;
     }
     brak.hidden = true; tresc.hidden = false;
-    try { przelicz(); } catch (e) {
+    try { if (st.brudne || !st.wynik) przelicz(); } catch (e) {
       console.error(e);
       tresc.hidden = true; brak.hidden = false; brak.textContent = '';
       brak.appendChild(h('p', { class: 'alert alert--err' }, 'Nie udało się przygotować wyniku: ' + (e && e.message ? e.message : e)));
@@ -605,8 +654,14 @@
       renderuj();
     });
     // decyzje o scaleniu mogą zmienić liczbę rekordów i licencję zbioru – przy otwartym kroku 4 liczymy od nowa
+    // wynik liczymy od nowa tylko po faktycznej zmianie (decyzje, poprawki, nowe wyszukiwanie)
+    let zaplanowane = false;
     AED.on('wynik:zmiana', function (e) {
-      if (e && e.akcja === 'nieaktualny' && AED.router.trasa === 'wynik') renderuj();
+      if (!e || e.akcja !== 'nieaktualny') return;
+      st.brudne = true;
+      if (AED.router.trasa !== 'wynik' || zaplanowane) return;
+      zaplanowane = true;
+      setTimeout(function () { zaplanowane = false; if (AED.router.trasa === 'wynik') renderuj(); }, 0);
     });
   }
 

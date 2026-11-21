@@ -359,6 +359,9 @@ tr.is-rozne td, tr.is-rozne th { background: var(--c-warn-bg); }
 .dup-wartosc.is-puste { color: var(--c-muted); font-style: italic; }
 .dup-wybor { align-items: flex-start; min-height: 24px; }
 .dup-wybor input { margin-top: .15rem; }
+.dup-stan { flex-basis: 100%; display: flex; flex-direction: column; gap: .35rem; }
+.dup-stan progress { width: 100%; max-width: 24rem; height: .6rem; accent-color: var(--c-primary); }
+.wyn-noweid { margin: .5rem 0 0; padding-left: 1.25rem; overflow-wrap: anywhere; }
 .odst__pola { display: flex; flex-wrap: wrap; gap: 0 1rem; }
 .odst__pola .field { flex: 1 1 10rem; min-width: 0; margin-bottom: .5rem; }
 .odst__form { margin-top: .75rem; }
@@ -442,3 +445,4 @@ fieldset[aria-invalid="true"] { border: 2px solid var(--c-err-fg); border-radius
 @media (forced-colors: active) {
   .btn, .badge, .stepper__num { border: 1px solid CanvasText; }
 }
+.odst__dodatkowe { margin: 0 0 .5rem; padding-left: 1.25rem; }

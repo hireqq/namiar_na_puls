@@ -24,7 +24,8 @@
   const ODSTAJACY = {
     DALEKO_OD_ZBIORU: 'Daleko od reszty zbioru',
     DALEKO_OD_MIEJSCOWOSCI: 'Daleko od swojej miejscowości',
-    POZA_WOJEWODZTWEM: 'Poza wskazanym województwem'
+    POZA_WOJEWODZTWEM: 'Poza wskazanym województwem',
+    TE_SAME_WSPOLRZEDNE: 'Te same współrzędne co inny rekord'
   };
 
   const st = {
@@ -63,6 +64,7 @@
   }
   function opisRekordu(r, id) { return r ? r._kodZrodla + ', wiersz ' + r._wiersz : String(id); }
   function grupy() { const w = wynik(); return (w && w.grupy) || []; }
+  function w0() { return wynik() || {}; }
 
   /** Stan grupy: decyzja użytkownika albo to, co stanie się bez niej. */
   function stanGrupy(g, D) {
@@ -87,6 +89,25 @@
     });
     return { glowny: s.glowny || (d && d.glowny) || g.glowny, wartosci: wartosci };
   }
+  /** Decyzja „scal” z tym, co użytkownik wybrał ręcznie; reszta według reguły automatycznej (najnowsza weryfikacja, priorytet źródła). */
+  function decyzjaScal(g) {
+    const d = decyzje()[g.id];
+    const s = st.szkic[g.id] || {};
+    const out = { status: 'scal' };
+    const gl = s.glowny || (d && d.glowny);
+    if (gl) out.glowny = gl;
+    const w = Object.assign({}, (d && d.wartosci) || {}, s.wartosci || {});
+    if (Object.keys(w).length) out.wartosci = w;
+    return out;
+  }
+  /** Punkt odstający uznany za poprawny (stan w magazynie; zapas: stan interfejsu). */
+  function zaakceptowany(o) { return store.ustawOdstajacyOk ? !!o.zaakceptowany : st.poprawne.has(o.rekordId); }
+  function ustawPoprawny(o, ok) {
+    if (store.ustawOdstajacyOk) {
+      st.wlasna = true;
+      try { store.ustawOdstajacyOk(o.rekordId, ok); } finally { st.wlasna = false; }
+    } else if (ok) st.poprawne.add(o.rekordId); else st.poprawne.delete(o.rekordId);
+  }
 
   // ------------------------------------------------------------ wyszukiwanie
   async function szukaj() {
@@ -97,22 +118,27 @@
     const btn = $('dup-szukaj');
     const stanEl = $('dup-stan');
     btn.setAttribute('aria-disabled', 'true'); btn.classList.add('is-busy');
+    const pasek = $('dup-postep');
+    const tekst = $('dup-stan-tekst');
     stanEl.hidden = false;
-    stanEl.textContent = 'Szukam duplikatów w ' + liczba(n) + ' ' + odmiana(n, 'rekordzie', 'rekordach', 'rekordach') + '…' +
+    tekst.textContent = 'Szukam duplikatów w ' + liczba(n) + ' ' + odmiana(n, 'rekordzie', 'rekordach', 'rekordach') + '…' +
       (n >= DUZO ? ' Przy tak dużym zbiorze może to potrwać kilkanaście sekund. Nie zamykaj strony.' : '');
-    oglos(stanEl.textContent);
+    pasek.value = 0;
+    oglos(tekst.textContent);
     await new Promise(function (ok) { setTimeout(ok, 40); }); // pozwala przeglądarce pokazać komunikat
     try {
-      let ostatni = 0;
-      await Promise.resolve(store.znajdzDuplikaty({
+      const opcje = {
         promienM: st.promien,
         postep: function (ulamek) {
           const proc = Math.round(Math.max(0, Math.min(1, ulamek)) * 100);
-          if (proc - ostatni >= 10) { ostatni = proc; stanEl.textContent = 'Szukam duplikatów… ' + proc + '%'; }
+          pasek.value = proc;
+          pasek.setAttribute('aria-valuetext', proc + '%');
         }
-      }));
+      };
+      // wersja asynchroniczna oddaje sterowanie przeglądarce – pasek postępu się odświeża
+      await (store.znajdzDuplikatyAsync ? store.znajdzDuplikatyAsync(opcje) : Promise.resolve(store.znajdzDuplikaty(opcje)));
       st.strona = 1; st.stronaOdst = 1; st.szkic = {}; st.nieaktualne = false;
-      st.poprawne = new Set(); st.poprawioneWsp = new Map(); st.edycja = null;
+      st.poprawioneWsp = new Map(); st.edycja = null;
     } catch (e) {
       console.error(e);
       st.blad = 'Nie udało się wyszukać duplikatów: ' + (e && e.message ? e.message : e);
@@ -175,10 +201,13 @@
   function zatwierdzWysokie() {
     const D = decyzje();
     const doZrobienia = grupy().filter(function (g) { return g.pewnosc === 'wysoka' && !D[g.id]; });
-    doZrobienia.forEach(function (g) {
-      const w = wybory(g);
-      zapiszDecyzje(g.id, { status: 'scal', glowny: w.glowny, wartosci: w.wartosci });
-    });
+    const mapa = {};
+    doZrobienia.forEach(function (g) { mapa[g.id] = decyzjaScal(g); });
+    st.wlasna = true;
+    try {
+      if (store.ustawDecyzjeWiele) store.ustawDecyzjeWiele(mapa);   // jedno zdarzenie zamiast setek
+      else Object.keys(mapa).forEach(function (id) { store.ustawDecyzje(id, mapa[id]); });
+    } finally { st.wlasna = false; }
     renderuj();
     const n = $('h-dup-wynik'); if (n) n.focus();
     oglos('Zatwierdzono scalenie ' + liczba(doZrobienia.length) + ' ' + odmiana(doZrobienia.length, 'grupy', 'grup', 'grup') + ' o wysokiej pewności.');
@@ -203,7 +232,9 @@
         h('p', { class: 'hint', id: 'dup-promien-pomoc' }, 'Większa odległość znajdzie więcej par, ale też więcej różnych urządzeń stojących obok siebie. Zalecamy 30 m.')),
       h('div', { class: 'dup-narzedzia__akcje' },
         h('button', { type: 'submit', class: 'btn btn--primary', id: 'dup-szukaj' }, w ? 'Szukaj ponownie' : 'Szukaj duplikatów')),
-      h('p', { class: 'remote-status', id: 'dup-stan', hidden: true }));
+      h('div', { class: 'dup-stan', id: 'dup-stan', hidden: true },
+        h('p', { class: 'remote-status', id: 'dup-stan-tekst' }),
+        h('progress', { id: 'dup-postep', max: 100, value: 0, 'aria-labelledby': 'dup-stan-tekst' })));
   }
 
   function statystyka(n, opis, klasa) {
@@ -230,6 +261,14 @@
       statystyka(wg.srednia, 'pewność średnia', 'stat--warn'),
       statystyka(wg.niska, 'pewność niska'),
       statystyka(zdecydowane, 'z decyzją (z ' + liczba(gr.length) + ')')));
+    // decyzje z poprzedniego wyszukiwania, których grupy już nie ma (magazyn: lista; zapas: liczba w podsumowaniu)
+    const nd = store.decyzjeNiedopasowane !== undefined ? store.decyzjeNiedopasowane : (w0().podsumowanie && w0().podsumowanie.decyzjeNiedopasowane);
+    const niedop = Array.isArray(nd) ? nd.length : (Number(nd) || 0);
+    if (niedop > 0) {
+      kont.appendChild(h('p', { class: 'alert alert--warn' }, liczba(niedop) + ' ' +
+        odmiana(niedop, 'Twoja wcześniejsza decyzja nie pasuje', 'Twoje wcześniejsze decyzje nie pasują', 'Twoich wcześniejszych decyzji nie pasuje') +
+        ' do nowych grup (zmieniły się rekordy lub współrzędne). Przejrzyj grupy bez decyzji.'));
+    }
     kont.appendChild(h('p', null, 'Grupy o wysokiej pewności scalimy automatycznie, jeśli nie zdecydujesz inaczej. ' +
       'Grupy o średniej i niskiej pewności bez Twojej decyzji zostaną jako osobne rekordy.'));
     if (wysokieBez) {
@@ -341,8 +380,7 @@
     else { s.wartosci = s.wartosci || {}; s.wartosci[co] = rekordId; }
     const d = decyzje()[g.id];
     if (d && d.status === 'scal') {
-      const w = wybory(g);
-      zapiszDecyzje(g.id, { status: 'scal', glowny: w.glowny, wartosci: w.wartosci });
+      zapiszDecyzje(g.id, decyzjaScal(g));
       oglos('Zapisano wybór w decyzji o scaleniu.');
     }
   }
@@ -369,8 +407,7 @@
       h('div', { class: 'cell-actions grupa__akcje' },
         s !== 'scal' ? h('button', { type: 'button', class: 'btn btn--primary btn--small', 'aria-describedby': idStan,
           onclick: function () {
-            const ww = wybory(g);
-            zdecyduj(g, nr, { status: 'scal', glowny: ww.glowny, wartosci: ww.wartosci }, 'Grupa ' + nr + ': zdecydowano scalić.');
+            zdecyduj(g, nr, decyzjaScal(g), 'Grupa ' + nr + ': zdecydowano scalić.');
           } }, 'Scal', h('span', { class: 'visually-hidden' }, ' – ' + tekst)) : null,
         s !== 'rozdziel' ? h('button', { type: 'button', class: 'btn btn--secondary btn--small', 'aria-describedby': idStan,
           onclick: function () { zdecyduj(g, nr, { status: 'rozdziel' }, 'Grupa ' + nr + ': oznaczono jako różne urządzenia.'); } },
@@ -452,9 +489,12 @@
         odznaka('warn', ODSTAJACY[o.kod] || o.kod), ' ',
         h('span', null, h('code', null, r ? r._kodZrodla : '?'), ', wiersz ' + (r ? r._wiersz : '—') + (r && r.nazwa ? ' – ' + r.nazwa : ''))),
       h('p', { id: id + '-kom', class: 'problem__komunikat' }, o.komunikat),
+      (o.dodatkowe || []).length ? h('ul', { class: 'odst__dodatkowe' }, o.dodatkowe.map(function (x) {
+        return h('li', null, h('strong', null, (ODSTAJACY[x.kod] || x.kod) + ': '), x.komunikat);
+      })) : null,
       h('p', { class: 'meta' }, 'Współrzędne: ', h('span', { class: 'problem__wartosc' },
         r ? liczbaWsp(r.szerokosc_geograficzna) + ', ' + liczbaWsp(r.dlugosc_geograficzna) : '—'),
-        typeof o.odlegloscKm === 'number' ? ' · odległość: ' + liczba(Math.round(o.odlegloscKm)) + ' km' : null,
+        typeof o.odlegloscKm === 'number' && o.kod !== 'TE_SAME_WSPOLRZEDNE' ? ' · odległość: ' + liczba(Math.round(o.odlegloscKm)) + ' km' : null,
         r && r.miejscowosc ? ' · miejscowość: ' + r.miejscowosc : null),
       h('div', { class: 'cell-actions' },
         h('button', { type: 'button', class: 'btn btn--secondary btn--small', 'aria-expanded': edycja ? 'true' : 'false', 'aria-controls': id + '-form',
@@ -466,7 +506,7 @@
           }, id: id + '-edytuj' }, 'Popraw współrzędne', h('span', { class: 'visually-hidden' }, ' – ' + opisRekordu(r, o.rekordId))),
         h('button', { type: 'button', class: 'btn btn--ghost btn--small', 'aria-describedby': id + '-kom',
           onclick: function () {
-            st.poprawne.add(o.rekordId); st.edycja = null;
+            ustawPoprawny(o, true); st.edycja = null;
             renderujOdstajace(); fokusOdst(i);
             oglos('Oznaczono punkt ' + opisRekordu(r, o.rekordId) + ' jako poprawny.');
           } }, 'To poprawne', h('span', { class: 'visually-hidden' }, ' – ' + opisRekordu(r, o.rekordId)))),
@@ -498,14 +538,16 @@
     if (!dostepne()) return;
     if (!w) { kont.appendChild(h('p', { class: 'empty' }, 'Lista pojawi się po wyszukaniu duplikatów.')); return; }
     const wszystkie = w.odstajace || [];
-    const aktywne = wszystkie.filter(function (o) { return !st.poprawne.has(o.rekordId) && !st.poprawioneWsp.has(o.rekordId); });
+    const aktywne = wszystkie.filter(function (o) { return !zaakceptowany(o) && !st.poprawioneWsp.has(o.rekordId); });
     if (!wszystkie.length) { kont.appendChild(h('p', { class: 'alert alert--ok' }, 'Nie znaleziono punktów odstających.')); return; }
     const stron = Math.max(1, Math.ceil(aktywne.length / NA_STRONE_ODST));
     if (st.stronaOdst > stron) st.stronaOdst = stron;
     const od = (st.stronaOdst - 1) * NA_STRONE_ODST;
     const lista = h('div', { id: 'odst-lista' });
     if (aktywne.length) {
-      lista.appendChild(h('p', { class: 'meta' }, liczba(aktywne.length) + ' ' + odmiana(aktywne.length, 'punkt do sprawdzenia', 'punkty do sprawdzenia', 'punktów do sprawdzenia') +
+      const doSpr = w.podsumowanie && typeof w.podsumowanie.odstajaceDoSprawdzenia === 'number' && !st.poprawioneWsp.size
+        ? w.podsumowanie.odstajaceDoSprawdzenia : aktywne.length;
+      lista.appendChild(h('p', { class: 'meta' }, liczba(doSpr) + ' ' + odmiana(doSpr, 'punkt do sprawdzenia', 'punkty do sprawdzenia', 'punktów do sprawdzenia') +
         (stron > 1 ? '. Strona ' + st.stronaOdst + ' z ' + stron + '.' : '.')));
       lista.appendChild(h('ul', { class: 'problemy' }, aktywne.slice(od, od + NA_STRONE_ODST).map(function (o, i) { return elementOdstajacego(o, od + i); })));
       if (stron > 1) lista.appendChild(paginacja(stron, st.stronaOdst, 'Strony listy punktów odstających', function (n) {
@@ -516,7 +558,7 @@
     }
     kont.appendChild(lista);
 
-    const zalatwione = wszystkie.filter(function (o) { return st.poprawne.has(o.rekordId) || st.poprawioneWsp.has(o.rekordId); });
+    const zalatwione = wszystkie.filter(function (o) { return zaakceptowany(o) || st.poprawioneWsp.has(o.rekordId); });
     if (zalatwione.length) {
       kont.appendChild(h('details', { class: 'wal-naprawy', open: true },
         h('summary', null, 'Sprawdzone punkty (' + liczba(zalatwione.length) + ')'),
@@ -527,7 +569,7 @@
             nowe ? 'poprawiono współrzędne na ' + nowe.sz + ', ' + nowe.dl + ' (zmianę cofniesz w sekcji „Ręczne poprawki”).'
               : 'oznaczono jako poprawny. ',
             nowe ? null : h('button', { type: 'button', class: 'btn-link', onclick: function () {
-              st.poprawne.delete(o.rekordId); renderujOdstajace();
+              ustawPoprawny(o, false); renderujOdstajace();
               const n = $('h-wal-odstajace'); if (n) n.focus();
               oglos('Przywrócono punkt ' + opisRekordu(r, o.rekordId) + ' na listę do sprawdzenia.');
             } }, 'Przywróć na listę', h('span', { class: 'visually-hidden' }, ' – ' + opisRekordu(r, o.rekordId))));
@@ -568,7 +610,7 @@
   function init() {
     AED.on('duplikaty:zmiana', function (e) {
       // magazyn sam wyszukuje ponownie po przeliczeniu rekordów – wynik znów jest aktualny
-      if (e && e.akcja === 'znaleziono') st.nieaktualne = false;
+      if (e && e.akcja === 'znaleziono') { st.nieaktualne = false; st.poprawioneWsp = new Map(); }
       if (st.wlasna || st.wTrakcie) return;
       if (AED.router.trasa === 'walidacja') renderuj();
     });

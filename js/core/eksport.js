@@ -100,6 +100,8 @@
   // ------------------------------------------------------------------ CSV
   /**
    * CSV wg RFC 4180. Domyślnie: UTF-8 bez BOM, przecinek, CRLF (RFC 4180 wymaga CRLF; parsery – PapaParse, pandas, Excel – czytają też LF).
+   * Plik dla portalu (domyślnie) zawiera dane bez zmian. Ochrona przed formułami (apostrof przed = + - @) włącza się domyślnie
+   * tylko w wersji dla Excela (bom: true); można ją wymusić opcją ochrona.
    * @param {Object[]} rekordy
    * @param {{kolumny?:string[], separator?:string, koniecLinii?:string, bom?:boolean, ochrona?:boolean}} [opcje]
    */
@@ -108,7 +110,7 @@
     const kol = (opcje.kolumny || kolumny()).filter(function (k) { return k[0] !== '_'; });
     const sep = opcje.separator || ',';
     const nl = opcje.koniecLinii || '\r\n';
-    const ochrona = opcje.ochrona !== false;
+    const ochrona = opcje.ochrona !== undefined ? !!opcje.ochrona : !!opcje.bom;
     const linie = [kol.map(function (k) { return poleCsv(k, sep); }).join(sep)];
     (rekordy || []).forEach(function (r) {
       const w = new Array(kol.length);
@@ -354,8 +356,10 @@
       zasoby = [{ plik: nazwaPliku('csv', data), format: 'csv', tytul: 'Defibrylatory AED – CSV' },
         { plik: nazwaPliku('geojson', data), format: 'geojson', tytul: 'Defibrylatory AED – GeoJSON' }];
     }
+    const formaty = zasoby.map(function (z) { return (z.format || String(z.plik || '').split('.').pop() || 'csv').toLowerCase(); });
     const pakiet = {
-      profile: 'tabular-data-package',
+      // tabular-data-package wymaga, by każdy zasób był tabelą (CSV ze schematem)
+      profile: formaty.every(function (f) { return f === 'csv'; }) ? 'tabular-data-package' : 'data-package',
       name: nazwaPakietu(metadane.nazwa || metadane.extIdent || metadane.tytul || 'aed'),
       title: metadane.tytul || 'Defibrylatory AED',
       description: metadane.opis || '',
@@ -365,9 +369,10 @@
       licenses: lic ? [{ name: lic.kod, title: LICENCJE[lic.kod] ? LICENCJE[lic.kod].nazwa : lic.kod, path: LICENCJE[lic.kod] ? LICENCJE[lic.kod].url : '' }] : [],
       sources: (metadane.zrodla || []).map(function (z) { return { title: z.nazwa || z.kod, path: (z.meta && ((z.meta.zbior && z.meta.zbior.url) || z.meta.url)) || '' }; }),
       resources: zasoby.map(function (z, i) {
-        const format = (z.format || String(z.plik || '').split('.').pop() || 'csv').toLowerCase();
+        const format = formaty[i];
+        const baza = nazwaPakietu(z.nazwa || String(z.plik || 'zasob-' + (i + 1)).replace(/\.[^.]+$/, ''));
         const res = {
-          name: nazwaPakietu(z.nazwa || String(z.plik || 'zasob-' + (i + 1)).replace(/\.[^.]+$/, '')) + (format !== 'csv' ? '-' + format : ''),
+          name: format === 'csv' || new RegExp('-' + format + '$').test(baza) ? baza : baza + '-' + format,
           path: z.plik, title: z.tytul || z.plik, description: z.opis || '', format: format, mediatype: MEDIA[format] || 'application/octet-stream'
         };
         if (format === 'csv') {
