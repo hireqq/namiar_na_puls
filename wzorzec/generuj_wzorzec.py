@@ -595,6 +595,305 @@ with open(OUT / "przyklad_aed.csv", "w", encoding="utf-8", newline="") as f:
         w.writerow([p.get(h, "") for h in NAGLOWKI])
 
 # --------------------------------------------------------------------------
+# Prosty formularz dla dysponenta (Namiar na puls): ludzkie nagłówki, listy rozwijane,
+# instrukcja. Aplikacja rozpoznaje nagłówki i etykiety (js/schema/schema.js -> formularzDysponenta).
+# --------------------------------------------------------------------------
+NAZWA_APLIKACJI = "Namiar na puls"
+ARKUSZ_FORMULARZA = "Urządzenia"
+ZNACZNIK_PRZYKLADU = "PRZYKŁAD – wiersz pomijany przy imporcie, możesz go usunąć"
+
+# Słowniki dla ludzi: kod wzorca -> etykieta w liście rozwijanej (kolejność = kolejność na liście)
+SLOWNIKI_PROSTE = {
+    "status": [
+        ("aktywny", "Tak, działa i jest na miejscu"),
+        ("tymczasowo_niedostepny", "Chwilowo nie (serwis, naprawa)"),
+        ("wycofany", "Nie – urządzenie usunięto"),
+    ],
+    "dostepnosc": [
+        ("publiczna_24_7", "Całodobowo, dla wszystkich"),
+        ("publiczna_w_godzinach", "Dla wszystkich, w godzinach otwarcia"),
+        ("dla_klientow", "Tylko dla klientów / użytkowników obiektu"),
+        ("tylko_personel", "Wydaje personel (na prośbę)"),
+        ("mobilny", "W pojeździe (np. OSP, policja)"),
+    ],
+    "sposob_dostepu": [
+        ("otwarta_szafka", "Wisi w otwartej szafce / na uchwycie"),
+        ("szafka_z_alarmem", "Szafka z alarmem, bez zamka"),
+        ("szafka_na_kod", "Szafka zamknięta na kod"),
+        ("szafka_na_klucz", "Szafka zamknięta na klucz"),
+        ("u_personelu", "Trzeba poprosić personel"),
+        ("nieznany", "Nie wiem"),
+    ],
+    "typ_urzadzenia": [
+        ("polautomatyczny", "Półautomatyczny (trzeba nacisnąć przycisk)"),
+        ("automatyczny", "Automatyczny (sam wykonuje wyładowanie)"),
+        ("nieznany", "Nie wiem"),
+    ],
+    "dysponent_typ": [
+        ("jst", "Samorząd (urząd gminy, miasta, powiatu)"),
+        ("administracja_rzadowa", "Administracja rządowa"),
+        ("podmiot_leczniczy", "Przychodnia / szpital"),
+        ("placowka_oswiatowa", "Szkoła / przedszkole / uczelnia"),
+        ("sluzby", "Służby (straż, policja, OSP)"),
+        ("transport", "Transport (dworzec, lotnisko, metro)"),
+        ("firma", "Firma / sklep / hotel"),
+        ("organizacja_pozarzadowa", "Fundacja / stowarzyszenie / parafia"),
+        ("inny", "Inny"),
+    ],
+    "sposob_weryfikacji": [
+        ("wizja_lokalna", "Obejrzałem(-am) urządzenie na miejscu"),
+        ("potwierdzenie_dysponenta", "Potwierdzam jako dysponent"),
+        ("zdjecie", "Mam zdjęcie z datą"),
+        ("import_bez_weryfikacji", "Nie sprawdzano"),
+    ],
+    "wojewodztwo": [(n, n) for n, _, _ in SLOWNIKI["wojewodztwo"]],
+}
+TAK_NIE = ["Tak", "Nie"]
+
+# (pole wzorca, nagłówek, opis pod nagłówkiem, obowiązkowe, rodzaj, przykład)
+# rodzaj: tekst | liczba | wspolrzedna_lat | wspolrzedna_lon | data | tak_nie | lista
+# Kolejność jak w formularzu dysponenta w aplikacji (js/core/formularz.js).
+FORMULARZ = [
+    ("nazwa", "Nazwa miejsca", "Budynek lub obiekt, np. „Szkoła Podstawowa nr 1 – hol”.", True, "tekst",
+     "Szkoła Podstawowa nr 1 (przykład) – hol główny"),
+    ("miejscowosc", "Miejscowość", "Np. Krosno.", True, "tekst", "Kraków"),
+    ("ulica", "Ulica", "Np. ul. Szkolna, al. Jana Pawła II. Puste, gdy miejscowość nie ma ulic.", False, "tekst", "ul. Szkolna"),
+    ("numer_budynku", "Nr budynku", "Np. 5A, 12/14.", False, "tekst", "5A"),
+    ("kod_pocztowy", "Kod pocztowy", "Np. 30-001.", False, "tekst", "30-001"),
+    ("wojewodztwo", "Województwo", "Wybierz z listy.", False, "lista", "małopolskie"),
+    ("szerokosc_geograficzna", "Szerokość geograficzna",
+     "Pierwsza liczba z mapy (49–55), np. 50.061430. Na mapie kliknij prawym przyciskiem miejsce AED.", True, "wspolrzedna_lat", 50.061430),
+    ("dlugosc_geograficzna", "Długość geograficzna", "Druga liczba z mapy (14–24), np. 19.936580.", True, "wspolrzedna_lon", 19.936580),
+    ("opis_lokalizacji", "Gdzie dokładnie wisi AED?", "Np. „hol główny, na lewo od wejścia, obok portierni”.", True, "tekst",
+     "Hol główny, na lewo od wejścia, obok portierni"),
+    ("wewnatrz_budynku", "Czy AED jest wewnątrz budynku?", "Tak / Nie (Nie = na zewnątrz, np. w kapsule na ścianie).", False, "tak_nie", "Tak"),
+    ("kondygnacja", "Piętro", "0 = parter, -1 = piwnica, 1 = pierwsze piętro.", False, "liczba", 0),
+    ("dostepnosc", "Kto i kiedy może skorzystać?", "Wybierz z listy.", True, "lista", "Dla wszystkich, w godzinach otwarcia"),
+    ("godziny_dostepnosci", "Godziny dostępu", "Gdy nie całą dobę, np. „pn-pt 7:00-17:00; sob 8:00-14:00”.", False, "tekst", "pn-pt 7:00-17:00"),
+    ("sposob_dostepu", "Jak zabezpieczony jest AED?", "Wybierz z listy.", True, "lista", "Wisi w otwartej szafce / na uchwycie"),
+    ("instrukcja_dostepu", "Gdzie jest klucz / kto otwiera?", "Gdy szafka jest zamknięta. NIE wpisuj samego kodu do szafki.", False, "tekst", ""),
+    ("status", "Czy urządzenie działa?", "Wybierz z listy.", True, "lista", "Tak, działa i jest na miejscu"),
+    ("typ_urzadzenia", "Typ urządzenia", "Wybierz z listy (jeśli wiesz).", False, "lista", "Automatyczny (sam wykonuje wyładowanie)"),
+    ("producent", "Producent", "Jeśli wiesz.", False, "tekst", ""),
+    ("model", "Model", "Jeśli wiesz.", False, "tekst", ""),
+    ("tryb_pediatryczny", "Czy są elektrody dla dzieci?", "Tak / Nie.", False, "tak_nie", "Tak"),
+    ("data_waznosci_elektrod", "Elektrody ważne do", "Data z opakowania elektrod, RRRR-MM-DD.", False, "data", "2027-06-30"),
+    ("data_waznosci_baterii", "Bateria ważna do", "RRRR-MM-DD.", False, "data", ""),
+    ("data_przegladu", "Data ostatniego przeglądu", "RRRR-MM-DD.", False, "data", "2026-03-01"),
+    ("dysponent_nazwa", "Nazwa instytucji (dysponent)", "Pełna nazwa, np. „Urząd Miasta Krosna”.", True, "tekst",
+     "Szkoła Podstawowa nr 1 (przykład)"),
+    ("dysponent_typ", "Rodzaj instytucji", "Wybierz z listy.", False, "lista", "Szkoła / przedszkole / uczelnia"),
+    ("dysponent_regon", "REGON", "9 lub 14 cyfr. Nie podawaj dla osoby prywatnej.", False, "tekst", ""),
+    ("telefon_kontaktowy", "Telefon (portiernia, recepcja)", "Numer instytucji, nie prywatny. Np. 134743000.", False, "tekst", "120000000"),
+    ("email_kontaktowy", "E-mail do zgłaszania zmian", "Adres funkcyjny, np. sekretariat@…, nie imienny.", False, "tekst",
+     "sekretariat@sp1.przyklad.pl"),
+    ("id_lokalne", "Twój numer urządzenia", "Numer inwentarzowy lub oznaczenie AED u Ciebie.", False, "tekst", "SP1/1"),
+    ("data_weryfikacji", "Kiedy sprawdzono, że AED jest na miejscu?", "Data, RRRR-MM-DD.", True, "data", "2026-11-20"),
+    ("sposob_weryfikacji", "Jak sprawdzono?", "Wybierz z listy.", False, "lista", "Obejrzałem(-am) urządzenie na miejscu"),
+    ("uwagi", "Uwagi", "Np. „w serwisie do 15 grudnia”.", False, "tekst", ZNACZNIK_PRZYKLADU),
+]
+_POLA_WZORCA = {p[1]: p for p in POLA}
+for _f in FORMULARZ:
+    assert _f[0] in _POLA_WZORCA, _f[0]
+    if _f[4] == "lista":
+        assert _f[0] in SLOWNIKI_PROSTE, _f[0]
+        assert {k for k, _ in SLOWNIKI_PROSTE[_f[0]]} <= {w[0] for w in SLOWNIKI[_POLA_WZORCA[_f[0]][9]]}, _f[0]
+NAGLOWKI_FORMULARZA = [f[1] for f in FORMULARZ]
+
+# Wypełnione wiersze do testów (FIKCYJNE) – tests/fixtures/formularz_dysponenta_przyklad.xlsx
+import datetime as _dt
+WIERSZE_TESTOWE = [
+    dict(nazwa="Urząd Gminy Przykładowo – hol", miejscowosc="Przykładowo", ulica="ul. Główna", numer_budynku="1", kod_pocztowy="38-400",
+         wojewodztwo="podkarpackie", szerokosc_geograficzna=49.693996, dlugosc_geograficzna=21.765857,
+         opis_lokalizacji="Parter, przy portierni", wewnatrz_budynku="Tak", kondygnacja=0,
+         dostepnosc="Dla wszystkich, w godzinach otwarcia", godziny_dostepnosci="pn-pt 7:30-15:30",
+         sposob_dostepu="Szafka z alarmem, bez zamka", status="Tak, działa i jest na miejscu",
+         typ_urzadzenia="Półautomatyczny (trzeba nacisnąć przycisk)", tryb_pediatryczny="Nie",
+         data_waznosci_elektrod=_dt.date(2027, 5, 31), data_przegladu=_dt.date(2026, 2, 10),
+         dysponent_nazwa="Urząd Gminy Przykładowo", dysponent_typ="Samorząd (urząd gminy, miasta, powiatu)",
+         telefon_kontaktowy="134000000", email_kontaktowy="sekretariat@przykladowo.example", id_lokalne="UG-1",
+         data_weryfikacji=_dt.date(2026, 11, 2), sposob_weryfikacji="Potwierdzam jako dysponent"),
+    dict(nazwa="Remiza OSP Przykładowo", miejscowosc="Przykładowo", numer_budynku="12", kod_pocztowy="38-400",
+         szerokosc_geograficzna=49.701234, dlugosc_geograficzna=21.771234,
+         opis_lokalizacji="Kapsuła na ścianie remizy od strony drogi", wewnatrz_budynku="Nie",
+         dostepnosc="Całodobowo, dla wszystkich", sposob_dostepu="Szafka zamknięta na klucz",
+         instrukcja_dostepu="Klucz w sklepie obok i u sołtysa", status="Tak, działa i jest na miejscu",
+         typ_urzadzenia="Automatyczny (sam wykonuje wyładowanie)", tryb_pediatryczny="Tak",
+         dysponent_nazwa="Ochotnicza Straż Pożarna w Przykładowie", dysponent_typ="Służby (straż, policja, OSP)",
+         data_weryfikacji=_dt.date(2026, 10, 15), sposob_weryfikacji="Obejrzałem(-am) urządzenie na miejscu",
+         uwagi="Miejscowość bez nazw ulic"),
+    dict(nazwa="Przychodnia (przykład) – poczekalnia", miejscowosc="Przykładowo", ulica="Szkolna", numer_budynku="5A",
+         szerokosc_geograficzna=49.695555, dlugosc_geograficzna=21.760001,
+         opis_lokalizacji="Poczekalnia na I piętrze, przy rejestracji", wewnatrz_budynku="Tak", kondygnacja=1,
+         dostepnosc="Tylko dla klientów / użytkowników obiektu", godziny_dostepnosci="pn-pt 8:00-18:00",
+         sposob_dostepu="Trzeba poprosić personel", status="Chwilowo nie (serwis, naprawa)", typ_urzadzenia="Nie wiem",
+         dysponent_nazwa="Przychodnia (przykład) Sp. z o.o.", dysponent_typ="Przychodnia / szpital",
+         data_waznosci_baterii=_dt.date(2028, 1, 31), data_weryfikacji=_dt.date(2026, 9, 1),
+         sposob_weryfikacji="Mam zdjęcie z datą", uwagi="W serwisie do 2026-12-15"),
+]
+
+JAK_WYPELNIC = [
+    "Przejdź do arkusza „Urządzenia”. Jeden wiersz = jedno urządzenie AED.",
+    "Wypełnij kolumny z CZERWONYM nagłówkiem – są obowiązkowe. Pozostałe (niebieskie) wypełnij, jeśli znasz odpowiedź.",
+    "W kolumnach z listą kliknij komórkę i wybierz wartość ze strzałki. W kolumnach Tak/Nie wybierz „Tak” albo „Nie”.",
+    "Współrzędne: na mapie (np. mapy.geoportal.gov.pl albo Mapy Google) kliknij prawym przyciskiem miejsce, gdzie wisi AED, "
+    "i przepisz dwie liczby: pierwsza (49–55) to szerokość, druga (14–24) to długość geograficzna.",
+    "Daty wpisuj jako RRRR-MM-DD, np. 2026-11-20.",
+    "Żółty wiersz to przykład – możesz go zostawić (aplikacja go pominie) albo usunąć. Nie zmieniaj nagłówków ani wiersza z opisami.",
+    "Zapisz plik (XLSX albo CSV UTF-8) i przekaż go koordynatorowi danych AED w gminie albo wgraj w aplikacji „"
+    + NAZWA_APLIKACJI + "” (krok 1 „Źródła”, przycisk „Plik”).",
+]
+
+
+def zbuduj_formularz(wiersze_danych=()):
+    from openpyxl.comments import Comment
+    from openpyxl.worksheet.properties import PageSetupProperties
+
+    CZERWONY, NIEBIESKI = PatternFill("solid", fgColor="9C0006"), PatternFill("solid", fgColor="1F3864")
+    ZOLTY = PatternFill("solid", fgColor="FFF2CC")
+    OPIS_FILL = PatternFill("solid", fgColor="F2F2F2")
+    wb = Workbook()
+
+    # Arkusz 1: Jak wypełnić
+    ws = wb.active
+    ws.title = "Jak wypełnić"
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 110
+    ws.append([NAZWA_APLIKACJI + " – formularz dysponenta AED"])
+    ws["A1"].font = Font(bold=True, size=16)
+    ws.append(["Formularz do zgłaszania defibrylatorów AED (szkoła, urząd, firma, OSP…). Wypełnienie zajmuje kilka minut na urządzenie."])
+    ws.append([])
+    ws.append(["Jak wypełnić – krok po kroku"])
+    ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=13)
+    for i, krok in enumerate(JAK_WYPELNIC, 1):
+        ws.append([i, krok])
+        ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=12)
+        ws.cell(row=ws.max_row, column=1).alignment = Alignment(horizontal="center", vertical="top")
+        ws.cell(row=ws.max_row, column=2).alignment = WRAP
+    ws.append([])
+    ws.append(["Przykład"])
+    ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=13)
+    przyklad = {f[0]: f[5] for f in FORMULARZ}
+    for f in FORMULARZ:
+        if f[3] or f[0] in ("ulica", "numer_budynku", "godziny_dostepnosci"):
+            ws.append(["", "%s: %s" % (f[1], przyklad[f[0]])])
+    ws.append([])
+    ws.append(["Legenda"])
+    ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=13)
+    ws.append(["", "Czerwony nagłówek – pole obowiązkowe; niebieski – nieobowiązkowe; żółty wiersz – przykład."])
+    ws.cell(row=ws.max_row, column=1).fill = CZERWONY
+    ws.append([])
+    ws.append(["Kontakt"])
+    ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=13)
+    ws.append(["", "Pytania: koordynator danych AED w Twojej gminie (przed rozesłaniem formularza wpisz tu: imię i nazwisko lub dział, e-mail, telefon)."])
+    ws.append(["", "Bezpieczeństwo: nie wpisuj kodów do szafek, prywatnych telefonów ani imiennych adresów e-mail – dane będą publiczne."])
+    for row in ws.iter_rows(min_row=2):
+        for c in row[1:]:
+            c.alignment = WRAP
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
+    # Arkusz 2: Urządzenia
+    ws = wb.create_sheet(ARKUSZ_FORMULARZA)
+    ws.append(NAGLOWKI_FORMULARZA)
+    ws.append([f[2] for f in FORMULARZ])
+    ws.append([_dt.date.fromisoformat(f[5]) if f[4] == "data" and f[5] else f[5] for f in FORMULARZ])
+    for w in wiersze_danych:
+        ws.append([w.get(f[0], "") for f in FORMULARZ])
+    ws.row_dimensions[1].height = 45
+    ws.row_dimensions[2].height = 75
+    ostatni = 1000
+    listy = []   # (pole słownikowe, zakres komórek) – walidacja po zbudowaniu arkusza „Listy”
+    for i, f in enumerate(FORMULARZ, 1):
+        col = get_column_letter(i)
+        h = ws.cell(row=1, column=i)
+        h.fill = CZERWONY if f[3] else NIEBIESKI
+        h.font = HDR_FONT
+        h.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+        h.comment = Comment(("OBOWIĄZKOWE. " if f[3] else "") + f[2], NAZWA_APLIKACJI, width=260, height=110)
+        o = ws.cell(row=2, column=i)
+        o.font = Font(italic=True, size=9, color="404040")
+        o.fill = OPIS_FILL
+        o.alignment = WRAP
+        p = ws.cell(row=3, column=i)
+        p.fill = ZOLTY
+        p.font = Font(italic=True, color="7F6000")
+        ws.column_dimensions[col].width = 44 if f[0] in ("nazwa", "opis_lokalizacji", "dysponent_nazwa", "uwagi") else (
+            34 if f[4] == "lista" else 18)
+        zakres = "%s3:%s%d" % (col, col, ostatni)
+        if f[4] in ("tekst",):
+            for r in range(3, 4 + len(wiersze_danych)):
+                ws.cell(row=r, column=i).number_format = "@"
+        if f[4] == "data":
+            for r in range(3, ostatni + 1):
+                ws.cell(row=r, column=i).number_format = "yyyy-mm-dd"
+            dv = DataValidation(type="date", operator="between", formula1="DATE(2000,1,1)", formula2="DATE(2100,12,31)", allow_blank=True,
+                                showErrorMessage=True, errorTitle="Niepoprawna data", error="Wpisz datę w formacie RRRR-MM-DD, np. 2026-11-20.")
+        elif f[4] in ("wspolrzedna_lat", "wspolrzedna_lon"):
+            lo, hi = (49, 55) if f[4] == "wspolrzedna_lat" else (14, 24.3)
+            for r in range(3, ostatni + 1):
+                ws.cell(row=r, column=i).number_format = "0.000000"
+            dv = DataValidation(type="decimal", operator="between", formula1=str(lo), formula2=str(hi), allow_blank=True,
+                                showErrorMessage=True, errorTitle="Współrzędna poza Polską",
+                                error="W Polsce %s wynosi od %s do %s (stopnie dziesiętne, np. %s)." % (
+                                    "szerokość" if lo == 49 else "długość", lo, hi, "50.061430" if lo == 49 else "19.936580"))
+        elif f[4] == "liczba":
+            dv = DataValidation(type="whole", operator="between", formula1="-5", formula2="100", allow_blank=True,
+                                showErrorMessage=True, errorTitle="Piętro", error="Wpisz liczbę całkowitą: 0 = parter, -1 = piwnica.")
+        elif f[4] == "tak_nie":
+            dv = DataValidation(type="list", formula1='"%s"' % ",".join(TAK_NIE), allow_blank=True,
+                                showErrorMessage=True, errorTitle="Tak albo Nie", error="Wybierz „Tak” albo „Nie”.")
+        elif f[4] == "lista":
+            dv = ("lista", f[0])
+        else:
+            dv = None
+        if isinstance(dv, DataValidation):
+            dv.add(zakres)
+            ws.add_data_validation(dv)
+        elif dv:
+            listy.append((dv[1], zakres))
+    ws.freeze_panes = "B3"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws.print_title_rows = "1:2"
+    dane = ws
+
+    # Arkusz pomocniczy z listami (ukryty) – formuły list nie mają limitu 255 znaków
+    ws = wb.create_sheet("Listy")
+    for j, (pole, wartosci) in enumerate(SLOWNIKI_PROSTE.items(), 1):
+        col = get_column_letter(j)
+        ws.cell(row=1, column=j, value=pole).font = Font(bold=True)
+        for r, (_, et) in enumerate(wartosci, 2):
+            ws.cell(row=r, column=j, value=et)
+        ws.column_dimensions[col].width = 40
+        for pole_f, zakres in listy:
+            if pole_f == pole:
+                dv = DataValidation(type="list", formula1="Listy!$%s$2:$%s$%d" % (col, col, len(wartosci) + 1), allow_blank=True,
+                                    showErrorMessage=True, errorTitle="Wybierz z listy", error="Wybierz jedną z wartości z listy rozwijanej.")
+                dv.add(zakres)
+                dane.add_data_validation(dv)
+    ws.sheet_state = "hidden"
+
+    wb.active = 0
+    wb.properties.title = "Formularz dysponenta AED – " + NAZWA_APLIKACJI
+    wb.properties.creator = NAZWA_APLIKACJI
+    return wb
+
+
+zbuduj_formularz().save(OUT / "formularz_dysponenta_AED.xlsx")
+_fixture = OUT.parent / "tests" / "fixtures"
+if _fixture.is_dir():
+    zbuduj_formularz(WIERSZE_TESTOWE).save(_fixture / "formularz_dysponenta_przyklad.xlsx")
+with open(OUT / "formularz_dysponenta_AED.csv", "w", encoding="utf-8-sig", newline="") as f:
+    # UTF-8 z BOM – Excel w polskiej wersji poprawnie pokaże polskie znaki po dwukliku
+    w = csv.writer(f, lineterminator="\r\n")
+    w.writerow(NAGLOWKI_FORMULARZA)
+    w.writerow([f[5] for f in FORMULARZ])
+
+# --------------------------------------------------------------------------
 # Schemat maszynowy: Frictionless Table Schema (schema.json) – format zbliżony do
 # "data_schema" zwracanego przez API dane.gov.pl – oraz js/schema/schema.js dla aplikacji
 # --------------------------------------------------------------------------
@@ -652,6 +951,15 @@ js_dane = {
     "schema": schema,
     "slowniki": {k: [{"kod": a, "etykieta": b, "opis": c} for a, b, c in v] for k, v in SLOWNIKI.items()},
     "zrodla": [dict(zip(ZRODLA_NAGL, z)) for z in ZRODLA],
+    # prosty formularz dla dysponenta (wzorzec/formularz_dysponenta_AED.xlsx / .csv) – nagłówki i etykiety rozpoznawane przy imporcie
+    "formularzDysponenta": {
+        "plikXlsx": "wzorzec/formularz_dysponenta_AED.xlsx",
+        "plikCsv": "wzorzec/formularz_dysponenta_AED.csv",
+        "arkusz": ARKUSZ_FORMULARZA,
+        "znacznikPrzykladu": ZNACZNIK_PRZYKLADU.split(" – ")[0] + " –",
+        "kolumny": [{"pole": f[0], "naglowek": f[1], "opis": f[2], "obowiazkowe": f[3], "rodzaj": f[4]} for f in FORMULARZ],
+        "slowniki": {k: [{"kod": a, "etykieta": b} for a, b in v] for k, v in SLOWNIKI_PROSTE.items()},
+    },
 }
 js_path = OUT.parent / "js" / "schema" / "schema.js"
 js_path.parent.mkdir(parents=True, exist_ok=True)

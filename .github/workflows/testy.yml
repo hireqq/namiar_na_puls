@@ -40,4 +40,4 @@ jobs:
         run: |
           python wzorzec/generuj_wzorzec.py
           # XLSX zawiera datę utworzenia, więc porównujemy tylko pliki tekstowe; CSV mają CRLF (RFC 4180), repozytorium – LF
-          git diff --exit-code --ignore-cr-at-eol -- js/schema/schema.js wzorzec/schema.json wzorzec/szablon_aed.csv wzorzec/przyklad_aed.csv
+          git diff --exit-code --ignore-cr-at-eol -- js/schema/schema.js wzorzec/schema.json wzorzec/szablon_aed.csv wzorzec/przyklad_aed.csv wzorzec/formularz_dysponenta_AED.csv

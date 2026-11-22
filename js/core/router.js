@@ -5,7 +5,7 @@
   'use strict';
 
   const KROKI = ['zrodla', 'mapowanie', 'walidacja', 'wynik'];
-  const NAZWA_SERWISU = 'Misja AED';
+  const NAZWA_SERWISU = 'Namiar na puls';
   let pierwszeWejscie = true;
   let ostatnia = 'start';
 

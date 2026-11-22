@@ -23,6 +23,22 @@
   const OPOZNIENIE_ZAPISU = 400; // ms – autozapis szkicu po zmianie
   const OPOZNIENIE_ODWROTNE = 1200; // ms – geokodowanie odwrotne po ostatnim wskazaniu punktu (UUG blokuje za nadużycie)
   const KLUCZ_UI_STARY = 'aed.formularz.ui.v1'; // dawny osobny zapis stanu interfejsu – tylko do migracji
+  // Uproszczony widok: na start tylko pola obowiązkowe, warunkowe i adres; reszta w <details> „więcej (opcjonalnie)”
+  const ZAWSZE_WIDOCZNE = { ulica: 1, numer_budynku: 1, kod_pocztowy: 1, cecha_ulicy: 1, kondygnacja: 1, dysponent_typ: 1,
+    telefon_kontaktowy: 1, email_kontaktowy: 1 };
+  // krótsze podpowiedzi w interfejsie (logika pól bez zmian)
+  const KROTKO = {
+    szerokosc_geograficzna: { pomoc: 'Uzupełni się po wyborze adresu lub punktu na mapie. Np. 50.061430.' },
+    dlugosc_geograficzna: { pomoc: 'Uzupełni się po wyborze adresu lub punktu na mapie. Np. 19.936580.' },
+    nazwa: { pomoc: 'Np. „Szkoła Podstawowa nr 1 – hol główny”.' },
+    ulica: { pomoc: 'Bez „ul.”. Brak ulic – zostaw puste.' },
+    godziny_dostepnosci: { pomoc: 'Np. „pn–pt 7:00–17:00” albo „całodobowo”.' },
+    instrukcja_dostepu: { pomoc: 'Kto ma klucz lub kod. Nie wpisuj samego kodu.' },
+    dysponent_nazwa: { pomoc: 'Pełna nazwa, np. „Urząd Miasta Krosna”.' },
+    telefon_kontaktowy: { etykieta: 'Telefon (instytucji)', pomoc: 'Np. sekretariat, portiernia.' },
+    email_kontaktowy: { etykieta: 'E-mail do zgłaszania zmian', pomoc: 'Adres funkcyjny, nie imienny.' }
+  };
+  function podstawowe(p) { return p.wymagane || !!p.warunek || !!ZAWSZE_WIDOCZNE[p.pole] || WSP.indexOf(p.pole) >= 0; }
 
   const st = {
     dysponent: {},
@@ -63,10 +79,11 @@
           : (typ === 'tekst_dlugi' || (maks && maks >= 300)) ? 'textarea'
             : (s.type === 'integer') ? 'integer'
               : (typ === 'liczba' || typ === 'wspolrzedna' || s.type === 'number') ? 'number' : 'text';
+    const k = KROTKO[nazwa] || {};
     return {
       pole: nazwa,
-      etykieta: o.etykieta || o.title || s.title || nazwa,
-      pomoc: o.pomoc || o.opis || s.description || '',
+      etykieta: k.etykieta || o.etykieta || o.title || s.title || nazwa,
+      pomoc: k.pomoc || o.pomoc || o.opis || s.description || '',
       warunek: o.warunek || null,
       format: o.format || (o.pomoc || slownik || rodzaj === 'boolean' || rodzaj === 'date' ? '' : a.format) || '',
       rodzaj: rodzaj,
@@ -166,6 +183,7 @@
         edycja: st.edycja ? { indeks: st.edycja.indeks, wstawPo: st.edycja.wstawPo, rekord: st.edycja.rekord } : null }) === false) ok = false;
     } catch (e) { console.warn('[AED] zapis szkicu:', e); ok = false; }
     st.zapisanoSzkic = ok ? new Date() : null;
+    odswiezPostep();
     const el = $('fd-szkic-stan');
     if (el) {
       el.textContent = '';
@@ -285,10 +303,26 @@
     b.append(ikona(jestBlad ? 'err' : 'warn'), ' ', lista.map(function (x) { return (x.poziom === 'ostrzezenie' ? 'Uwaga: ' : '') + x.komunikat; }).join(' '));
     b.hidden = false;
     cel.forEach(function (x) { if (jestBlad) x.setAttribute('aria-invalid', 'true'); else x.removeAttribute('aria-invalid'); });
+    otworzSzczegoly(el); // błąd albo ostrzeżenie w polu schowanym pod „Więcej” – pokaż je
+  }
+  /** Pole schowane w zwiniętym <details> – rozwiń je (błąd, fokus z podsumowania). */
+  function otworzSzczegoly(el) {
+    const d = el && el.closest && el.closest('details');
+    if (d && !d.open) d.open = true;
+  }
+  /** Pola w podziale: widoczne od razu i „więcej (opcjonalnie)” w <details> (otwarte, gdy coś w nich wpisano). */
+  function polaZWiecej(pola, wartosci, rysuj, idSzczegolow, tytulSzczegolow) {
+    const widoczne = pola.filter(podstawowe), dodatkowe = pola.filter(function (p) { return !podstawowe(p); });
+    if (!dodatkowe.length) return widoczne.map(rysuj);
+    const wypelnione = dodatkowe.some(function (p) { return !pusta(wartosci[p.pole]); });
+    return widoczne.map(rysuj).concat(h('details', { class: 'fd-wiecej', id: idSzczegolow, open: wypelnione || null },
+      h('summary', null, tytulSzczegolow + ' (' + liczba(dodatkowe.length) + ' ' + odmiana(dodatkowe.length, 'pole', 'pola', 'pól') + ', opcjonalnie)'),
+      h('div', { class: 'fd-pola' }, dodatkowe.map(rysuj))));
   }
   function fokusPola(prefiks, pole) {
     const el = $(idPola(prefiks, pole));
     if (!el) return false;
+    otworzSzczegoly(el);
     const f = el.tagName === 'FIELDSET' ? (el.querySelector('input:checked') || el.querySelector('input')) : el;
     f.focus(); f.scrollIntoView({ block: 'center' });
     return true;
@@ -328,6 +362,7 @@
     pokazDysponenta(pole);
     zaplanujZapis();
     odswiezListe(false);
+    odswiezPostep();
   }
   function problemyPolaDysp(pole) {
     if (dyspProblemyWpisu[pole]) return [{ pole: pole, poziom: 'blad', komunikat: dyspProblemyWpisu[pole] }];
@@ -339,18 +374,19 @@
     const opisy = opisyDysponenta();
     const lic = (W.slowniki.licencja_rekordu || []);
     const OPIS_LIC = {
-      'CC0-1.0': 'Każdy może używać danych bez żadnych warunków (domena publiczna). Zalecana – najprostsza dla aplikacji ratunkowych.',
-      'CC-BY-4.0': 'Każdy może używać danych, ale musi podać Twoją instytucję jako źródło.'
+      'CC0-1.0': 'Bez warunków (domena publiczna). Zalecana – najprostsza dla aplikacji ratunkowych.',
+      'CC-BY-4.0': 'Trzeba podać Twoją instytucję jako źródło.'
     };
     return h('section', { class: 'fd-sekcja', 'aria-labelledby': 'h-fd-dysp' },
-      h('h2', { id: 'h-fd-dysp', tabindex: '-1' }, '1. Dane dysponenta'),
-      h('p', null, 'Wpisz je raz – dołączymy je do każdego urządzenia. Telefon i e-mail najlepiej funkcyjne (np. sekretariat), nie prywatne.'),
+      h('h2', { id: 'h-fd-dysp', tabindex: '-1' }, '1. Twoja instytucja'),
+      h('p', null, 'Wpisz raz – dołączymy to do każdego urządzenia.'),
       h('div', { id: 'fd-d-podsumowanie' }),
       h('form', { id: 'fd-dysp', class: 'fd-form', novalidate: true, 'aria-labelledby': 'h-fd-dysp', onsubmit: function (e) { e.preventDefault(); } },
-        opisy.map(function (p) { return kontrolka(p, { prefiks: 'fd-d-', wartosc: st.dysponent[p.pole], onZmiana: zmianaDysponenta }); }),
+        polaZWiecej(opisy, st.dysponent, function (p) { return kontrolka(p, { prefiks: 'fd-d-', wartosc: st.dysponent[p.pole], onZmiana: zmianaDysponenta }); },
+          'fd-d-wiecej', 'Więcej o instytucji'),
         h('fieldset', { class: 'radio-group field', 'aria-describedby': 'fd-lic-pomoc' },
-          h('legend', null, 'Na jakiej licencji udostępniasz dane?'),
-          h('p', { class: 'hint', id: 'fd-lic-pomoc' }, 'Licencja mówi, jak inni mogą korzystać z Twoich danych. Obie są zgodne z portalem dane.gov.pl.'),
+          h('legend', null, 'Licencja danych'),
+          h('p', { class: 'hint', id: 'fd-lic-pomoc' }, 'Jak inni mogą korzystać z danych. Obie pasują do dane.gov.pl.'),
           lic.map(function (l) {
             const idl = 'fd-lic-' + l.kod;
             return h('div', { class: 'radio radio--opis' },
@@ -890,8 +926,8 @@
     const formularz = h('form', { id: 'fd-edytor', class: 'fd-form fd-edytor', novalidate: true, 'aria-labelledby': 'h-fd-edytor',
       onsubmit: function (e) { e.preventDefault(); zapiszUrzadzenie(); } },
       h('h3', { id: 'h-fd-edytor', tabindex: '-1' }, tytul),
-      h('p', { class: 'meta' }, 'Identyfikator urządzenia (nadany automatycznie, nie zmienia się): ', h('code', null, String(r.id_aed || '—'))),
-      h('p', { class: 'hint' }, 'Pola oznaczone gwiazdką (*) są obowiązkowe. Pola „zalecane” warto wypełnić, jeśli znasz odpowiedź.'),
+      h('p', { class: 'hint' }, 'Gwiazdka (*) = pole obowiązkowe. Pozostałe pola są schowane pod „Więcej” – wypełnij, jeśli znasz odpowiedź.'),
+      h('p', { class: 'meta' }, 'Numer urządzenia (nadawany automatycznie): ', h('code', null, String(r.id_aed || '—'))),
       h('div', { id: 'fd-e-podsumowanie' }),
       grupyUrzadzenia().map(function (g) {
         const lok = g.pola.some(function (p) { return WSP.indexOf(p.pole) >= 0; });
@@ -900,9 +936,9 @@
           g.opis ? h('p', { class: 'hint', id: 'fd-g-' + g.id + '-opis' }, g.opis) : null,
           lok ? blokLokalizacji() : null,
           lok ? h('h4', null, 'Współrzędne i adres') : null,
-          h('div', { class: 'fd-pola' }, g.pola.map(function (p) {
+          h('div', { class: 'fd-pola' }, polaZWiecej(g.pola, r, function (p) {
             return kontrolka(p, { prefiks: 'fd-e-', wartosc: r[p.pole], onZmiana: zmianaPola });
-          })));
+          }, 'fd-e-wiecej-' + g.id, 'Więcej')));
       }),
       h('div', { class: 'step-actions fd-edytor__akcje' },
         h('button', { type: 'button', class: 'btn btn--ghost', onclick: function () {
@@ -1018,7 +1054,42 @@
     }, 100);
   }
 
+  /** Postęp „1. Instytucja → 2. Urządzenia → 3. Przekaż dane” (tekst, nie tylko kolor). */
+  function odswiezPostep() {
+    const ol = $('fd-postep');
+    if (!ol) return;
+    const bledyD = bledy(problemyDysponenta());
+    const dyspOk = !bledyD.length && !Object.keys(dyspProblemyWpisu).length && !pusta(st.dysponent.dysponent_nazwa);
+    // „do poprawy” tylko dla pól już wpisanych; puste obowiązkowe = „do uzupełnienia”
+    const bd = bledyD.filter(function (p) { return !pusta(st.dysponent[p.pole]); }).length + Object.keys(dyspProblemyWpisu).length;
+    const n = st.urzadzenia.length;
+    const zBledami = st.urzadzenia.filter(function (r) { return bledyUrzadzenia(r).length; }).length;
+    const otwarte = !!(st.edycja && st.edycja.dotkniete.size);
+    const urzOk = n > 0 && !zBledami && !otwarte;
+    const kroki = [
+      { cel: 'h-fd-dysp', nazwa: 'Instytucja', ok: dyspOk,
+        stan: dyspOk ? 'Gotowe' : (bd ? 'Do poprawy: ' + liczba(bd) + ' ' + odmiana(bd, 'pole', 'pola', 'pól') : 'Do uzupełnienia') },
+      { cel: 'h-fd-urz', nazwa: 'Urządzenia', ok: urzOk,
+        stan: !n ? 'Brak urządzeń' : liczba(n) + ' ' + odmiana(n, 'urządzenie', 'urządzenia', 'urządzeń') +
+          (zBledami ? ', ' + liczba(zBledami) + ' do poprawy' : (otwarte ? ', jedno otwarte' : ' – gotowe')) },
+      { cel: 'h-fd-koniec', nazwa: 'Przekaż dane', ok: false, stan: dyspOk && urzOk ? 'Możesz pobrać plik' : 'Po krokach 1 i 2' }
+    ];
+    const biezacy = kroki.findIndex(function (k) { return !k.ok; });
+    ol.textContent = '';
+    kroki.forEach(function (k, i) {
+      ol.appendChild(h('li', { class: (k.ok ? 'is-gotowe' : '') + (i === biezacy ? ' is-biezacy' : '') },
+        h('span', { class: 'fd-postep__num', 'aria-hidden': 'true' }, k.ok ? '✓' : String(i + 1)),
+        h('span', { class: 'fd-postep__tekst' },
+          h('a', { href: '#' + k.cel, 'aria-current': i === biezacy ? 'step' : null, onclick: function (e) {
+            e.preventDefault(); // #hash służy routerowi – przenosimy tylko fokus
+            const el = $(k.cel); if (el) { el.focus(); el.scrollIntoView({ block: 'start' }); }
+          } }, (i + 1) + '. ' + k.nazwa),
+          h('span', { class: 'fd-postep__stan' }, k.stan))));
+    });
+  }
+
   function renderujKoniec() {
+    odswiezPostep();
     const kont = $('fd-koniec');
     if (!kont) return;
     const n = st.urzadzenia.length;
@@ -1062,14 +1133,17 @@
     }
     kont.append(
       h('div', { class: 'note fd-szkic' },
-        h('p', null, ikona('info'), ' Wpisane dane zapisują się automatycznie ', h('strong', null, 'tylko w tej przeglądarce'),
-          ' na tym urządzeniu. Nie wysyłamy ich nigdzie. Nie ma limitu czasu – możesz wrócić później.'),
+        h('p', null, ikona('info'), ' Dane zapisują się automatycznie ', h('strong', null, 'tylko w tej przeglądarce'),
+          '. Nie wysyłamy ich nigdzie. Możesz wrócić później.'),
         h('p', { class: 'meta', id: 'fd-szkic-stan' }, st.zapisanoSzkic ? 'Przywrócono zapisany szkic.' : ''),
         h('button', { type: 'button', class: 'btn btn--ghost btn--small', id: 'fd-wyczysc', onclick: wyczysc }, 'Wyczyść formularz i usuń szkic')),
+      h('nav', { 'aria-labelledby': 'h-fd-postep' },
+        h('h2', { id: 'h-fd-postep', class: 'visually-hidden' }, 'Postęp wypełniania'),
+        h('ol', { class: 'fd-postep', id: 'fd-postep' })),
       sekcjaDysponenta(),
       h('section', { class: 'fd-sekcja', 'aria-labelledby': 'h-fd-urz' },
         h('h2', { id: 'h-fd-urz', tabindex: '-1' }, '2. Urządzenia AED'),
-        h('p', null, 'Dodaj każde urządzenie osobno. Gdy kilka AED jest w tym samym budynku, użyj „Duplikuj” i zmień różnice (np. piętro).'),
+        h('p', null, 'Każde urządzenie osobno. Kilka AED w jednym budynku? Użyj „Duplikuj” i zmień piętro.'),
         h('div', { id: 'fd-lista' }),
         h('button', { type: 'button', class: 'btn btn--primary', id: 'fd-dodaj', onclick: function () { otworzEdytor(null); } }, '+ Dodaj urządzenie'),
         h('div', { id: 'fd-edytor-kont' })),

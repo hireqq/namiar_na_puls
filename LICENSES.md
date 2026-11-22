@@ -9,6 +9,8 @@ dalej swobodnie używać na warunkach tych licencji).
 | PapaParse | 5.4.1 | MIT | `vendor/papaparse/LICENSE` | https://www.papaparse.com |
 | SheetJS Community Edition | 0.20.3 | Apache-2.0 | `vendor/sheetjs/LICENSE` | https://cdn.sheetjs.com (nie używamy wersji z npm 0.18.5 – znane podatności) |
 | Leaflet (js, css, ikony, mapa źródeł) | 1.9.4 | BSD-2-Clause | `vendor/leaflet/LICENSE` | https://leafletjs.com (kopia z cdnjs, suma SHA-256 leaflet.js zgodna z unpkg) |
+| sql.js (SQLite w WebAssembly; zawiera SQLite – domena publiczna) | 1.13.0 | MIT, © 2017 sql.js authors | `vendor/sqljs/LICENSE` | https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/ (ładowany leniwie w trybie przeglądarkowym) |
+| Open Sans (krój pisma, woff2 latin + latin-ext, 400/600/700) | @fontsource/open-sans 5.2.7 | SIL Open Font License 1.1 | `vendor/open-sans/LICENSE` | https://github.com/googlefonts/opensans (pliki z https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5.2.7) |
 | openpyxl (tylko generator wzorca, Python) | 3.1.x | MIT | — | https://openpyxl.readthedocs.io |
 | lxml (tylko test `tests/waliduj_xml.py`, Python; nie jest częścią aplikacji) | 6.x | BSD-3-Clause | — | https://lxml.de |
 
@@ -28,4 +30,5 @@ dalej swobodnie używać na warunkach tych licencji).
 
 ## Fonty i ikony
 
-Fonty systemowe (bez plików fontów). Ikony SVG narysowane przez zespół.
+Krój Open Sans (SIL OFL 1.1, kopia lokalna w `vendor/open-sans`) – ten sam, którego używa www.gov.pl; zapasowo fonty
+systemowe. Ikony SVG i znak „Namiar na puls” narysowane przez zespół. Nie używamy godła RP, logotypu gov.pl ani ikon gov.pl.

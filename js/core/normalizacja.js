@@ -491,6 +491,9 @@
       dodajK(klucz(p.kod), p.kod, 'wysoka');
       dodajK(klucz(p.etykieta), p.kod, 'wysoka');
     });
+    // etykiety list rozwijanych z prostego formularza dysponenta (np. „Całodobowo, dla wszystkich”)
+    const fd = AED.wzorzec && AED.wzorzec.formularzDysponenta;
+    ((fd && fd.slowniki && fd.slowniki[nazwa]) || []).forEach(function (p) { dodajK(klucz(p.etykieta), p.kod, 'wysoka'); });
     const syn = SYNONIMY[nazwa] || {};
     Object.keys(syn).forEach(function (kod) {
       syn[kod].forEach(function (s) {

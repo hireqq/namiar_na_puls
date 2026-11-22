@@ -3,23 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Misja AED – wspólny zbiór danych o defibrylatorach</title>
-  <meta name="description" content="Prototyp narzędzia do łączenia danych o defibrylatorach AED z wielu źródeł w jeden zbiór zgodny ze wzorcem dla dane.gov.pl. Działa w całości w przeglądarce.">
+  <title>Namiar na puls – wspólny zbiór danych o defibrylatorach AED</title>
+  <meta name="description" content="Namiar na puls – prototyp narzędzia do łączenia danych o defibrylatorach AED z wielu źródeł w jeden zbiór zgodny ze wzorcem dla dane.gov.pl, z prostym formularzem dla dysponentów. Nie jest serwisem administracji publicznej.">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#tresc">Przejdź do treści</a>
 
+  <div class="proto-bar">
+    <div class="container">
+      <p><strong>Prototyp</strong> Projekt hackathonowy (HackNation 2026). To nie jest serwis administracji publicznej ani część gov.pl – wysyłka „do bazy gov.pl” jest tylko symulacją.</p>
+    </div>
+  </div>
+
   <header class="site-header">
     <div class="container site-header__inner">
       <a class="brand" href="#start">
         <svg class="brand__icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
           <path d="M16 28s-11-6.6-11-15A6 6 0 0 1 16 9a6 6 0 0 1 11 4c0 8.4-11 15-11 15z" fill="currentColor"/>
-          <path d="M17.5 11l-4 7h3.5l-1.5 6 5-8h-3.8l1.8-5z" fill="#fff"/>
+          <path d="M6 16h5l2-4 3 8 2.5-5H26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span class="brand__text">Misja AED <span class="brand__sub">prototyp</span></span>
+        <span class="brand__text">Namiar na puls</span>
       </a>
+      <p class="brand__portal">Dane o defibrylatorach AED <span class="proto-badge">Prototyp</span></p>
       <nav aria-label="Menu główne">
         <ul class="top-nav">
           <li><a href="#start">Start</a></li>
@@ -55,7 +62,8 @@
         <span lang="en">dane.gov.pl</span>.</p>
       <p class="note">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6z" fill="currentColor"/></svg>
-        Wszystko dzieje się w Twojej przeglądarce. Wgrane pliki nie są nigdzie wysyłane.
+        <span>Wgrane pliki są przetwarzane w Twojej przeglądarce. Na końcu możesz zasymulować zgłoszenie zbioru „do bazy gov.pl” – dane
+          trafiają wtedy tylko do lokalnego pliku <code>wyniki.gov</code> (na tym komputerze), nie do prawdziwego systemu.</span>
       </p>
 
       <div class="cards cards--2">
@@ -74,13 +82,20 @@
 
         <article class="card card--path">
           <h2>Udostępnij dane o swoich AED</h2>
-          <p>Dla dysponenta (szkoły, urzędu, firmy, OSP). Wypełnij prosty formularz albo pobierz szablon i opublikuj
-            plik w portalu dane.gov.pl.</p>
-          <ul class="link-list">
-            <li><a href="wzorzec/szablon_aed.csv" download>Pobierz szablon CSV</a> <span class="meta">(same nagłówki)</span></li>
-            <li><a href="wzorzec/wzorcowy_zakres_danych_AED.xlsx" download>Pobierz wzorcowy zakres danych XLSX</a> <span class="meta">(opis pól, słowniki, przykłady)</span></li>
-          </ul>
-          <a class="btn btn--secondary" href="#formularz">Otwórz formularz</a>
+          <p>Dla dysponenta (szkoły, urzędu, firmy, OSP). Wypełnij formularz na stronie albo pobierz prosty arkusz.</p>
+          <div class="pobierz-szablon">
+            <a class="btn btn--primary" href="wzorzec/formularz_dysponenta_AED.xlsx" download aria-describedby="start-xlsx-opis">Pobierz prosty formularz (Excel)</a>
+            <p class="hint" id="start-xlsx-opis">Jeden wiersz = jedno urządzenie. Wypełnij, zapisz i odeślij koordynatorowi albo opublikuj w <span lang="en">dane.gov.pl</span>.</p>
+            <p class="pobierz-szablon__inne"><a href="wzorzec/formularz_dysponenta_AED.csv" download>Ten sam formularz w CSV</a></p>
+            <details class="pobierz-szablon__zaawansowane">
+              <summary>Dla zaawansowanych: pełny wzorcowy zakres danych</summary>
+              <ul class="link-list">
+                <li><a href="wzorzec/wzorcowy_zakres_danych_AED.xlsx" download>Wzorcowy zakres danych (XLSX)</a> <span class="meta">– opis wszystkich pól, słowniki, przykłady</span></li>
+                <li><a href="wzorzec/szablon_aed.csv" download>Pełny szablon CSV</a> <span class="meta">– wszystkie kolumny wzorca</span></li>
+              </ul>
+            </details>
+          </div>
+          <a class="btn btn--secondary" href="#formularz">Wypełnij formularz na stronie</a>
         </article>
       </div>
     </section>
@@ -112,8 +127,19 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17.2V21h3.8L17.8 10l-3.8-3.8L3 17.2zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8L20.7 7z" fill="currentColor"/></svg>
             Formularz
           </h2>
-          <p>Rekordy wpisane ręcznie przez dysponentów, którzy nie mają własnego pliku. Po wypełnieniu formularza
-            wybierz „Dodaj do scalania” – urządzenia trafią do rejestru źródeł jako jedno źródło.</p>
+          <p>Dysponent bez własnego pliku może wpisać urządzenia na stronie („Dodaj do scalania”) albo wypełnić prosty arkusz.</p>
+          <div class="pobierz-szablon">
+            <a class="btn btn--secondary btn--small" href="wzorzec/formularz_dysponenta_AED.xlsx" download aria-describedby="k1-xlsx-opis">Pobierz prosty formularz (Excel)</a>
+            <p class="hint" id="k1-xlsx-opis">Wyślij go dysponentom. Wypełniony plik wgraj tutaj jako „Plik od dysponenta”.
+              <a href="wzorzec/formularz_dysponenta_AED.csv" download>Wersja CSV</a>.</p>
+            <details class="pobierz-szablon__zaawansowane">
+              <summary>Pełny wzorcowy zakres danych</summary>
+              <ul class="link-list">
+                <li><a href="wzorzec/wzorcowy_zakres_danych_AED.xlsx" download>Wzorcowy zakres danych (XLSX)</a></li>
+                <li><a href="wzorzec/szablon_aed.csv" download>Pełny szablon CSV</a></li>
+              </ul>
+            </details>
+          </div>
           <a class="btn btn--secondary" href="#formularz">Otwórz formularz dysponenta</a>
         </article>
 
@@ -230,6 +256,7 @@
         <div id="wyn-podglad"></div>
       </div>
 
+
       <h2 id="h-wyn-instrukcja">Jak opublikować zbiór w dane.gov.pl</h2>
       <div class="instrukcja">
         <p>Zbiór publikuje instytucja, która ma konto dostawcy danych w portalu
@@ -286,6 +313,13 @@
             – instrukcje dla dostawców danych, szkolenia, pytania i odpowiedzi.</li>
         </ul>
       </div>
+      <section class="gov-wysylka" id="gov-wysylka" aria-labelledby="h-gov">
+        <h2 id="h-gov" tabindex="-1">Zatwierdź i wyślij do bazy gov.pl <span class="gov-wysylka__sym">(symulacja)</span></h2>
+        <p class="alert alert--info gov-wysylka__info" id="gov-info"><strong>To symulacja.</strong> Dane nie trafiają do żadnego prawdziwego
+          systemu gov.pl. Zgłoszenie zapisujemy w lokalnym pliku bazy <code>wyniki.gov</code>, aby pokazać, jak mogłoby wyglądać przekazanie zbioru.</p>
+        <div id="gov-tresc"></div>
+      </section>
+
       <div class="step-actions">
         <a class="btn btn--ghost" href="#walidacja">Wstecz</a>
       </div>
@@ -294,9 +328,19 @@
     <!-- ===================== FORMULARZ ===================== -->
     <section data-route="formularz" aria-labelledby="h-formularz" hidden>
       <h1 id="h-formularz" tabindex="-1">Formularz dysponenta AED</h1>
-      <p class="lead">Dla szkół, urzędów, firm i OSP, które nie mają własnego pliku z danymi. Wpisz dane instytucji,
-        dodaj swoje defibrylatory i pobierz gotowy plik do publikacji w portalu <span lang="en">dane.gov.pl</span>.
-        Wolisz arkusz? <a href="wzorzec/szablon_aed.csv" download>Pobierz szablon CSV</a>.</p>
+      <p class="lead">Trzy kroki: wpisz instytucję, dodaj defibrylatory, pobierz plik (albo dodaj go do scalania).</p>
+      <div class="pobierz-szablon pobierz-szablon--wiersz">
+        <p>Wolisz arkusz? <a href="wzorzec/formularz_dysponenta_AED.xlsx" download>Pobierz prosty formularz (Excel)</a> –
+          wypełnij go i odeślij koordynatorowi albo opublikuj w <span lang="en">dane.gov.pl</span>.
+          <a href="wzorzec/formularz_dysponenta_AED.csv" download>Wersja CSV</a>.</p>
+        <details class="pobierz-szablon__zaawansowane">
+          <summary>Dla zaawansowanych: pełny wzorcowy zakres danych</summary>
+          <ul class="link-list">
+            <li><a href="wzorzec/wzorcowy_zakres_danych_AED.xlsx" download>Wzorcowy zakres danych (XLSX)</a></li>
+            <li><a href="wzorzec/szablon_aed.csv" download>Pełny szablon CSV</a></li>
+          </ul>
+        </details>
+      </div>
       <div id="fd-tresc"></div>
     </section>
 
@@ -311,8 +355,10 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>Prototyp przygotowany na HackNation 2026 (zadanie „Misja AED – Dane na ratunek”).
-        <a href="LICENSES.md">Licencje użytych bibliotek</a>.</p>
+      <p class="site-footer__nazwa">Namiar na puls</p>
+      <p>Prototyp przygotowany na HackNation 2026 (zadanie „Misja AED – Dane na ratunek”). Nie jest serwisem administracji
+        publicznej i nie jest powiązany z gov.pl ani dane.gov.pl – korzysta tylko z podobnej stylistyki i publicznych usług.</p>
+      <p><a href="LICENSES.md">Licencje użytych bibliotek i fontu</a> · krój Open Sans (SIL OFL 1.1)</p>
     </div>
   </footer>
 
@@ -339,10 +385,12 @@
   <script src="js/core/duplikaty.js"></script>
   <script src="js/core/eksport.js"></script>
   <script src="js/core/formularz.js"></script>
+  <script src="js/core/gov.js"></script>
   <script src="js/ui/duplikaty.js"></script>
   <script src="js/ui/wynik.js"></script>
   <script src="js/ui/mapa.js"></script>
   <script src="js/ui/formularz.js"></script>
+  <script src="js/ui/gov.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

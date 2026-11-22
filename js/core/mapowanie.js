@@ -105,6 +105,9 @@
       if (!slaby && (k.length >= 4 || / /.test(k))) ZAWIERA.push({ k: ' ' + k + ' ', pole: pole, dl: k.length });
     });
   }
+  // nagłówki prostego formularza dysponenta (wzorzec/formularz_dysponenta_AED.xlsx) – zawsze pewne dopasowanie
+  const FORM_DYSP = AED.wzorzec.formularzDysponenta || null;
+  if (FORM_DYSP) FORM_DYSP.kolumny.forEach(function (k) { if (POLE[k.pole]) dodajDokladne(N.klucz(k.naglowek), k.pole, 99, 'wysoka', 'formularz'); });
   Object.keys(SYNONIMY).forEach(function (p) { dodajSynonimy(p, SYNONIMY[p]); });
   dodajSynonimy('_adres', SYN_ADRES);
   dodajSynonimy('_wsp', SYN_WSP);
@@ -220,6 +223,7 @@
         let powod;
         if (d.rodzaj === 'nazwa') powod = 'Nagłówek „' + kolumna + '” to nazwa pola we wzorcu.';
         else if (d.rodzaj === 'tytul') powod = 'Nagłówek „' + kolumna + '” to tytuł pola „' + tytul(d.pole) + '”.';
+        else if (d.rodzaj === 'formularz') powod = 'Nagłówek „' + kolumna + '” pochodzi z formularza dysponenta – pole „' + tytul(d.pole) + '”.';
         else powod = 'Nagłówek „' + kolumna + '” oznacza zwykle pole „' + tytul(d.pole) + '”.';
         wynik[d.pole] = { pole: d.pole, kolumna: kolumna, wynik: d.wynik, pewnosc: d.pewnosc, powod: powod };
       }

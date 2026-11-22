@@ -151,6 +151,8 @@
   }
   function wybierzArkusz(wb) {
     if (wb.SheetNames.indexOf('dane_aed') >= 0) return 'dane_aed'; // plik zgodny ze wzorcem
+    const fd = AED.wzorzec && AED.wzorzec.formularzDysponenta;
+    if (fd && wb.SheetNames.indexOf(fd.arkusz) >= 0) return fd.arkusz;  // prosty formularz dysponenta (arkusz 1 to instrukcja)
     for (const n of wb.SheetNames) {
       const ref = wb.Sheets[n] && wb.Sheets[n]['!ref'];
       if (ref && ref !== 'A1') return n;
@@ -234,6 +236,42 @@
     return { kolumny: kolumny, wiersze: wiersze, meta: meta };
   }
 
+  // ------------------------------------------- formularz dysponenta
+  /** Plik z prostego formularza dysponenta: pomijamy wiersz z opisami kolumn i wiersze przykładu (oznaczone „PRZYKŁAD”)
+      leżące tuż pod nagłówkiem. Numeracja wierszy zostaje zgodna z arkuszem (przesuwamy wierszNaglowka). */
+  function pominWierszePomocnicze(wynik) {
+    const fd = AED.wzorzec && AED.wzorzec.formularzDysponenta;
+    if (!fd || !wynik || !wynik.wiersze || !wynik.wiersze.length) return wynik;
+    const opisy = {};
+    fd.kolumny.forEach(function (k) { opisy[k.naglowek] = k.opis; });
+    const zFormularza = wynik.kolumny.filter(function (k) { return Object.prototype.hasOwnProperty.call(opisy, k); });
+    if (zFormularza.length < Math.max(3, wynik.kolumny.length / 2)) return wynik;
+    // wielkie litery i myślnik/dwukropek: „PRZYKŁAD – …” (a nie np. miejscowość „Przykładowo”)
+    const znacznik = String(fd.znacznikPrzykladu || 'PRZYKŁAD –');
+    const RE_ZNACZNIK = /^PRZYKŁAD\s*[-–—:]/;
+    const pomocniczy = function (w) {
+      let opis = 0, niepuste = 0;
+      for (const k of wynik.kolumny) {
+        const v = String(w[k] === undefined || w[k] === null ? '' : w[k]).trim();
+        if (!v) continue;
+        niepuste++;
+        if (v.indexOf(znacznik) === 0 || RE_ZNACZNIK.test(v)) return true;
+        if (opisy[k] === v) opis++;
+      }
+      return niepuste > 0 && opis >= niepuste / 2;
+    };
+    let n = 0;
+    while (n < wynik.wiersze.length && pomocniczy(wynik.wiersze[n])) n++;
+    if (!n) return wynik;
+    wynik.wiersze = wynik.wiersze.slice(n);
+    wynik.meta = wynik.meta || {};
+    wynik.meta.wierszNaglowka = (Number(wynik.meta.wierszNaglowka) || 1) + n;
+    wynik.meta.formularzDysponenta = true;
+    (wynik.meta.naprawy = wynik.meta.naprawy || []).push('Formularz dysponenta: pominięto ' + n + ' ' +
+      AED.dom.odmiana(n, 'wiersz pomocniczy', 'wiersze pomocnicze', 'wierszy pomocniczych') + ' (opisy kolumn, przykład) pod nagłówkiem.');
+    return wynik;
+  }
+
   // ------------------------------------------------- zgodność ze wzorcem
   function zgodnoscZeWzorcem(kolumny) {
     const pola = AED.wzorzec.schema.fields;
@@ -270,6 +308,7 @@
       if (rodzaj === 'csv') wynik.meta.format = roz === 'tsv' ? 'TSV' : 'CSV';
       if (d.kodowanie === 'Windows-1250') wynik.meta.naprawy.push('Plik nie był w UTF-8 – odczytano go jako Windows-1250. Sprawdź polskie znaki w podglądzie.');
     }
+    pominWierszePomocnicze(wynik);
     if (!wynik.wiersze.length) throw new Error('Nie znaleziono w pliku żadnych wierszy z danymi.');
     wynik.meta.plik = { nazwa: plik.name, rozmiar: plik.size };
     wynik.meta.wzorzec = zgodnoscZeWzorcem(wynik.kolumny);
@@ -279,12 +318,12 @@
 
   /** Zmiana arkusza w już wczytanym skoroszycie. */
   function zmienArkusz(skoroszyt, nazwa) {
-    const w = parsujArkusz(skoroszyt, nazwa);
+    const w = pominWierszePomocnicze(parsujArkusz(skoroszyt, nazwa));
     w.meta.wzorzec = zgodnoscZeWzorcem(w.kolumny);
     return w;
   }
 
   AED.zrodla = AED.zrodla || {};
   AED.zrodla.plik = { wczytaj: wczytaj, zmienArkusz: zmienArkusz, zgodnoscZeWzorcem: zgodnoscZeWzorcem, ROZSZERZENIA: ROZSZERZENIA,
-    _test: { dekoduj: dekoduj, parsujCsv: parsujCsv, wykryjSeparator: wykryjSeparator, parsujJson: parsujJson, znajdzNaglowek: znajdzNaglowek } };
+    _test: { pominWierszePomocnicze: pominWierszePomocnicze, dekoduj: dekoduj, parsujCsv: parsujCsv, wykryjSeparator: wykryjSeparator, parsujJson: parsujJson, znajdzNaglowek: znajdzNaglowek } };
 })(window.AED);

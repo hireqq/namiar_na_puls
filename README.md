@@ -1,8 +1,13 @@
-# Misja AED – wspólny zbiór danych o defibrylatorach (prototyp)
+# Namiar na puls – wspólny zbiór danych o defibrylatorach AED (prototyp)
 
 Prototyp na HackNation 2026 (zadanie „Misja AED – Dane na ratunek”). Łączy dane o defibrylatorach AED
 z wielu źródeł (pliki dysponentów, zbiory z dane.gov.pl, formularz dysponenta) w jeden zbiór zgodny z wzorcowym
-zakresem danych dla portalu dane.gov.pl. **Działa w całości w przeglądarce** – bez serwera, bazy danych i kluczy API.
+zakresem danych dla portalu dane.gov.pl. Scalanie działa w całości w przeglądarce, bez kluczy API. Na końcu kroku 4
+można **zasymulować** zatwierdzenie zbioru „do bazy gov.pl” – zgłoszenie trafia do lokalnej bazy SQLite `wyniki.gov`.
+
+**To nie jest serwis administracji publicznej.** Wygląd (kolory, przyciski, fokus, krój Open Sans) jest wzorowany
+na www.gov.pl, ale strona nie używa godła ani logotypu gov.pl, ma własny znak i nazwę „Namiar na puls” oraz widoczne
+oznaczenie „Prototyp”. Żadne dane nie trafiają do prawdziwych systemów gov.pl.
 
 Usługi zewnętrzne (publiczne, bez kluczy):
 - **API dane.gov.pl** – wyszukiwanie i pobieranie opublikowanych zbiorów o AED (krok 1),
@@ -17,13 +22,16 @@ pola współrzędnych, wyszukiwanie adresu).
 
 ## Uruchomienie
 
-- **Najprościej:** otwórz `index.html` w przeglądarce (dwuklik).
-- **Przez lokalny serwer** (zalecane – tak samo jak na GitHub Pages):
+- **Zalecane – lokalny serwer z bazą `wyniki.gov`:**
 
   ```
-  python -m http.server 8765
+  python serwer.py
   ```
-  i wejdź na http://localhost:8765
+  i wejdź na http://127.0.0.1:8000 (opcje: `--port N`, `--host`, `--baza ścieżka`). Zgłoszenia z kroku 4 zapisują się
+  w pliku `wyniki.gov` w katalogu projektu.
+- **Serwer statyczny / GitHub Pages:** np. `python -m http.server 8765` – wszystko działa, a baza `wyniki.gov` powstaje
+  w przeglądarce (sql.js, zapis w IndexedDB); plik pobierzesz przyciskiem „Pobierz plik wyniki.gov”.
+- **Plik z dysku (dwuklik `index.html`):** scalanie działa, ale wysyłka do bazy wymaga serwera (`python serwer.py`).
 - **GitHub Pages:** patrz sekcja [Wdrożenie](#wdrożenie).
 
 ## Struktura
@@ -39,9 +47,16 @@ js/core/formularz.js  logika formularza dysponenta (pola, normalizacja, walidacj
 js/sources/file.js    wczytywanie CSV/XLSX/XLS/ODS/JSON/GeoJSON
 js/sources/dgp.js     API dane.gov.pl
 js/sources/geokoder.js  geokodowanie GUGiK (UUG, ULDK)
+js/core/gov.js        symulowana wysyłka „do bazy gov.pl”: gotowość 4 kroków, zgłoszenie, zapis w wyniki.gov (API serwera
+                      albo sql.js w przeglądarce); schemat bazy: js/core/gov_schemat.sql (wspólny z serwer.py)
 js/ui/                ekrany i pomocnicze funkcje DOM: zdalne.js (dane.gov.pl, krok 1), duplikaty.js (krok 3),
-                      wynik.js (krok 4), mapa.js (Leaflet + podkłady GUGiK), formularz.js (formularz dysponenta)
-wzorzec/              wzorcowy zakres danych (xlsx, csv, schema.json) + generator
+                      wynik.js (krok 4), gov.js (przycisk „Zatwierdź i wyślij do bazy gov.pl (Symulacja)”),
+                      mapa.js (Leaflet + podkłady GUGiK), formularz.js (formularz dysponenta)
+serwer.py             lokalny serwer: aplikacja + /api/* bazy wyniki.gov (Python 3, bez zależności)
+vendor/sqljs/         sql.js (SQLite w WebAssembly) – ładowany leniwie tylko w trybie przeglądarkowym
+vendor/open-sans/     krój Open Sans (SIL OFL 1.1), ten sam co na gov.pl
+wzorzec/              prosty formularz dla dysponentów (formularz_dysponenta_AED.xlsx / .csv – jeden wiersz = jedno
+                      urządzenie), pełny wzorcowy zakres danych (xlsx, csv, schema.json) + generator
 tests/*.test.js       testy logiki w Node (bez przeglądarki), uruchamiane przez tests/uruchom.js
 tests/e2e/            testy end-to-end w headless Edge/Chrome (CDP, bez zależności npm)
 tests/fixtures/       pliki testowe (prawdziwe zbiory z dane.gov.pl, odpowiedzi API GUGiK + dane fikcyjne)
@@ -50,6 +65,38 @@ tests/waliduj_xml.py  sprawdzenie pliku metadanych XML ze schematem harvestera (
 otwarte_dane_latest.xsd  schemat XML harvestera dane.gov.pl
 vendor/               biblioteki (kopie lokalne z licencjami) – patrz LICENSES.md
 ```
+
+## Formularz dysponenta
+
+- **Na stronie** (`#formularz`): trzy kroki z widocznym postępem – instytucja, urządzenia, przekazanie (plik CSV
+  albo „Dodaj do scalania”). Na start widać tylko pola obowiązkowe, warunkowe i adres; pozostałe są w „Więcej (opcjonalnie)”.
+- **Arkusz do pobrania:** „Pobierz prosty formularz (Excel)” (`wzorzec/formularz_dysponenta_AED.xlsx`), wersja CSV
+  (UTF-8 z BOM). Pełny wzorcowy zakres danych zostaje jako materiał dla koordynatorów i zaawansowanych.
+
+## Baza wyniki.gov (symulacja gov.pl)
+
+Przycisk „Zatwierdź i wyślij do bazy gov.pl (Symulacja)” na końcu kroku 4 jest aktywny, gdy gotowe są wszystkie
+4 kroki (źródła, mapowanie współrzędnych, walidacja i wyszukanie duplikatów, poprawne metadane); w przeciwnym razie
+pokazuje listę braków z linkami. Każde kliknięcie zapisuje **nowe** zgłoszenie (numer, data, status `zatwierdzono_gov`,
+dane 4 kroków, suma kontrolna) i pokazuje aktualną liczbę zgłoszeń w pliku.
+
+- **Tryb serwera** (`python serwer.py`): `GET /api/status`, `POST /api/zgloszenia`, `GET /api/statystyki`,
+  `GET /api/baza` (spójna kopia pliku). Plik `wyniki.gov` leży w katalogu projektu i nie jest serwowany bezpośrednio.
+- **Tryb przeglądarki** (serwer statyczny, GitHub Pages): ta sama baza w sql.js, zapis w IndexedDB tej przeglądarki –
+  znika po wyczyszczeniu danych witryny lub w trybie prywatnym, nie jest wspólna dla innych przeglądarek. Pod `file://`
+  nie działa (komunikat z poleceniem `python serwer.py`).
+- Tabele `zgloszenia` i `rekordy_aed`, widoki `podsumowanie`, `zgloszenia_wg_statusu`, `statystyki_dzienne`.
+  Liczba zgłoszeń: `sqlite3 wyniki.gov "SELECT COUNT(*) FROM zgloszenia"` albo bez sqlite3:
+  `python -c "import sqlite3; print(sqlite3.connect('wyniki.gov').execute('SELECT COUNT(*) FROM zgloszenia').fetchone()[0])"`.
+- Tryb wykrywany jest bez błędów 404: aplikacja robi HEAD na bieżącą stronę i sprawdza nagłówek `X-Namiar-Serwer`,
+  który dodaje serwer.py (`GET /api/status` zostaje do diagnostyki).
+
+## Wygląd i dostępność
+
+Tokeny w `:root` (`css/style.css`) mają wartości odczytane z arkuszy www.gov.pl: tekst `#1b1b1b`, kolor podstawowy
+`#0052a5` (hover `#006cd7`), fokus – podwójny pierścień `#0452a8`/biały/`#0452a8`, tła `#f1f1f1`, pola z ramką
+`#808893`, stan nieaktywny `#656565`, czerwień `#d5233f` (linia stopki). Kontrast tekstu ≥ 4,5:1, elementów UI ≥ 3:1
+(liczby przy tokenach). Przyciski zablokowane używają `aria-disabled` (zostają w kolejności Tab i mają opis przyczyny).
 
 ## Wzorzec danych – jedno źródło prawdy
 
@@ -63,16 +110,19 @@ Generuje: `wzorzec/wzorcowy_zakres_danych_AED.xlsx`, `szablon_aed.csv`, `przykla
 ## Testy
 
 - **Logika (Node 18+):** `node tests/uruchom.js` – wszystkie pliki `tests/*.test.js` (np. `node tests/uruchom.js czesc5`).
+  `czesc6` uruchamia też `serwer.py`, więc wymaga **Pythona 3** w PATH.
 - **End-to-end (przeglądarka, Node 22+ – potrzebny wbudowany `WebSocket` do sterowania przeglądarką):** `node tests/e2e/uruchom.js`
   - wymaga **Microsoft Edge albo Google Chrome / Chromium** (wykrywane automatycznie; inną ścieżkę wskaż zmienną
-    `AED_PRZEGLADARKA`) oraz **Pythona 3** w PATH – skrypt sam uruchamia `python -m http.server` na wolnym porcie
-    i zamyka go na końcu; bez zależności npm,
+    `AED_PRZEGLADARKA`) oraz **Pythona 3** w PATH – skrypt sam uruchamia `python serwer.py` na wolnym porcie
+    z bazą w pliku tymczasowym (bez serwer.py – `python -m http.server`) i zamyka go na końcu; bez zależności npm,
   - domyślnie **bez internetu**: kafle mapy GUGiK zastępuje lokalny obrazek, geokoder – atrapa (`tests/mock-czesc5.js`);
     `--siec` wyłącza blokadę, `--zrzuty` zapisuje zrzuty ekranu, nazwa testu uruchamia tylko jego
     (np. `node tests/e2e/uruchom.js formularz`),
   - sprawdza: przepływ kroków 1→4 na plikach z `tests/fixtures`, formularz dysponenta (wyszukanie adresu, mapa,
     walidacja, szkic, CSV, „Dodaj do scalania”), inicjalizację map, szerokość 320 px bez poziomego przewijania,
-    brak błędów w konsoli i podstawową obsługę klawiaturą.
+    brak błędów w konsoli i podstawową obsługę klawiaturą; test `gov` – wysyłkę do bazy wyniki.gov (przycisk
+    zablokowany przed ukończeniem kroków, 2 zgłoszenia, liczba 1 → 2, pobrany plik SQLite) w trybie serwera
+    i przeglądarki.
 
 ## Wdrożenie
 
@@ -89,3 +139,5 @@ publikuje stronę na GitHub Pages (po zaliczonych testach). Jednorazowo w repozy
   datapackage.json, metadane XML), instrukcja publikacji w dane.gov.pl
 - [x] Część 5: formularz dysponenta (z wyszukiwaniem adresu GUGiK i szkicem w przeglądarce), mapa (Leaflet,
   podkłady GUGiK) w krokach 3 i 4 oraz w formularzu, testy e2e, wdrożenie na GitHub Pages
+- [x] Część 6: nazwa „Namiar na puls”, stylistyka wzorowana na gov.pl, symulowana wysyłka do bazy `wyniki.gov`
+  (serwer.py + sql.js), prosty formularz dla dysponentów (XLSX/CSV), uproszczony formularz na stronie

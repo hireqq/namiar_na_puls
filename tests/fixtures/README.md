@@ -8,6 +8,7 @@
 | `przemysl_dgp4581.csv` | Urząd Miejski w Przemyślu, „Lokalizacje AED…”, https://dane.gov.pl/pl/dataset/4581 (pobrano 2026-11-21) | CC0 1.0 | separator średnik, współrzędne jako GeoJSON w kolumnie |
 | `gmina_przyklad_cp1250.csv` | dane fikcyjne przygotowane przez zespół | — | kodowanie Windows-1250, wiersz tytułu nad tabelą, przecinek dziesiętny |
 | `przyklad_wzorzec.csv`, `przyklad_wzorzec.xlsx` | wygenerowane przez `wzorzec/generuj_wzorzec.py` (dane fikcyjne) | — | plik w pełni zgodny ze wzorcem |
+| `formularz_dysponenta_przyklad.xlsx` | wygenerowany przez `wzorzec/generuj_wzorzec.py` – prosty formularz dysponenta z 3 wypełnionymi wierszami (dane fikcyjne) | — | ludzkie nagłówki i etykiety list, wiersz opisów i wiersz przykładu do pominięcia, arkusz „Urządzenia” za instrukcją |
 
 ## Odpowiedzi usług GUGiK (`api/`, pobrane 2026-11-21, prawdziwe wycinki)
 

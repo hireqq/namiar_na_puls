@@ -395,9 +395,8 @@
     });
   }
 
-  /** Walidacja metadanych (AED.eksport.walidujMetadane). Zwraca true, gdy nie ma błędów. */
-  function sprawdzMetadane(zFokusem, zZasobami) {
-    odczytajFormularz();
+  /** Problemy metadanych bez zmian w interfejsie (np. do gotowości wysyłki). Wymaga st.metadane. */
+  function problemyMetadanych(zZasobami) {
     let problemy = [];
     const doSprawdzenia = zZasobami || st.metadane.adresZasobow ? zasoby() : undefined;
     try { problemy = (E() && E().walidujMetadane) ? (E().walidujMetadane(metadaneEksportu(), doSprawdzenia) || []) : []; } catch (e) { console.error(e); }
@@ -415,6 +414,13 @@
       if (widziane.has(k)) return false;
       widziane.add(k); return true;
     });
+    return problemy;
+  }
+
+  /** Walidacja metadanych (AED.eksport.walidujMetadane). Zwraca true, gdy nie ma błędów. */
+  function sprawdzMetadane(zFokusem, zZasobami) {
+    odczytajFormularz();
+    const problemy = problemyMetadanych(zZasobami);
     st.problemy = problemy;
     st.sprawdzono = true;
     const bledy = problemy.filter(function (p) { return p.poziom !== 'ostrzezenie'; });
@@ -695,5 +701,31 @@
   }
 
   AED.ui = AED.ui || {};
-  AED.ui.wynik = { init: init, renderuj: renderuj, get stan() { return st; }, get mapa() { return mapaWyn.obiekt && mapaWyn.obiekt.mapa; } };
+  /** Stan kroku 4 dla wysyłki do bazy (AED.gov.gotowosc / zbierzZgloszenie): bieżące metadane z formularza
+      (bez pokazywania błędów przy polach), ich problemy i rekordy eksportu. Bez wyniku – metadane null. */
+  function stanDlaGov() {
+    // wynik nieaktualny (zmiana decyzji, poprawki) – liczymy od nowa, by wysłać to, co widać po odświeżeniu
+    if (st.brudne && st.metadane) { try { przelicz(); } catch (e) { console.error(e); } }
+    const gotowy = !!(st.metadane && st.wynik && $('wyn-m-form'));
+    // stan kroku 3 ({gotowe, nieaktualne, problemy: Map}) – AED.gov sam ocenia aktualność i nie waliduje drugi raz
+    const walidacja = (AED.ui.walidacja && AED.ui.walidacja.stan) || undefined;
+    if (!gotowy) return { metadane: null, problemyMetadanych: [], rekordy: undefined, walidacja: walidacja, pominBledy: st.pominBledy, liczbaBlednych: 0 };
+    odczytajFormularz();
+    let problemy = [];
+    try { problemy = problemyMetadanych(false); } catch (e) { console.error(e); }
+    const m = metadaneEksportu();
+    delete m.zrodla; // pełne źródła (z wierszami) zbiera AED.gov ze store – tu tylko opis zbioru
+    return {
+      metadane: m,
+      problemyMetadanych: problemy,
+      rekordy: st.eksport,
+      walidacja: walidacja,
+      pominBledy: st.pominBledy,
+      pominieteBledne: st.pominBledy ? st.bledne.size : 0,
+      liczbaBlednych: st.eksport.filter(function (r) { return st.bledne.has(r._id); }).length
+    };
+  }
+
+  AED.ui.wynik = { init: init, renderuj: renderuj, stanDlaGov: stanDlaGov, POLE_METADANYCH: idPola,
+    get stan() { return st; }, get mapa() { return mapaWyn.obiekt && mapaWyn.obiekt.mapa; } };
 })(window.AED);

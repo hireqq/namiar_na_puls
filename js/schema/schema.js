@@ -1329,5 +1329,437 @@ window.AED.wzorzec = {
    "priorytet_przy_konflikcie": "—",
    "status_weryfikacji": "—"
   }
- ]
+ ],
+ "formularzDysponenta": {
+  "plikXlsx": "wzorzec/formularz_dysponenta_AED.xlsx",
+  "plikCsv": "wzorzec/formularz_dysponenta_AED.csv",
+  "arkusz": "Urządzenia",
+  "znacznikPrzykladu": "PRZYKŁAD –",
+  "kolumny": [
+   {
+    "pole": "nazwa",
+    "naglowek": "Nazwa miejsca",
+    "opis": "Budynek lub obiekt, np. „Szkoła Podstawowa nr 1 – hol”.",
+    "obowiazkowe": true,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "miejscowosc",
+    "naglowek": "Miejscowość",
+    "opis": "Np. Krosno.",
+    "obowiazkowe": true,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "ulica",
+    "naglowek": "Ulica",
+    "opis": "Np. ul. Szkolna, al. Jana Pawła II. Puste, gdy miejscowość nie ma ulic.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "numer_budynku",
+    "naglowek": "Nr budynku",
+    "opis": "Np. 5A, 12/14.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "kod_pocztowy",
+    "naglowek": "Kod pocztowy",
+    "opis": "Np. 30-001.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "wojewodztwo",
+    "naglowek": "Województwo",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": false,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "szerokosc_geograficzna",
+    "naglowek": "Szerokość geograficzna",
+    "opis": "Pierwsza liczba z mapy (49–55), np. 50.061430. Na mapie kliknij prawym przyciskiem miejsce AED.",
+    "obowiazkowe": true,
+    "rodzaj": "wspolrzedna_lat"
+   },
+   {
+    "pole": "dlugosc_geograficzna",
+    "naglowek": "Długość geograficzna",
+    "opis": "Druga liczba z mapy (14–24), np. 19.936580.",
+    "obowiazkowe": true,
+    "rodzaj": "wspolrzedna_lon"
+   },
+   {
+    "pole": "opis_lokalizacji",
+    "naglowek": "Gdzie dokładnie wisi AED?",
+    "opis": "Np. „hol główny, na lewo od wejścia, obok portierni”.",
+    "obowiazkowe": true,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "wewnatrz_budynku",
+    "naglowek": "Czy AED jest wewnątrz budynku?",
+    "opis": "Tak / Nie (Nie = na zewnątrz, np. w kapsule na ścianie).",
+    "obowiazkowe": false,
+    "rodzaj": "tak_nie"
+   },
+   {
+    "pole": "kondygnacja",
+    "naglowek": "Piętro",
+    "opis": "0 = parter, -1 = piwnica, 1 = pierwsze piętro.",
+    "obowiazkowe": false,
+    "rodzaj": "liczba"
+   },
+   {
+    "pole": "dostepnosc",
+    "naglowek": "Kto i kiedy może skorzystać?",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": true,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "godziny_dostepnosci",
+    "naglowek": "Godziny dostępu",
+    "opis": "Gdy nie całą dobę, np. „pn-pt 7:00-17:00; sob 8:00-14:00”.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "sposob_dostepu",
+    "naglowek": "Jak zabezpieczony jest AED?",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": true,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "instrukcja_dostepu",
+    "naglowek": "Gdzie jest klucz / kto otwiera?",
+    "opis": "Gdy szafka jest zamknięta. NIE wpisuj samego kodu do szafki.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "status",
+    "naglowek": "Czy urządzenie działa?",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": true,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "typ_urzadzenia",
+    "naglowek": "Typ urządzenia",
+    "opis": "Wybierz z listy (jeśli wiesz).",
+    "obowiazkowe": false,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "producent",
+    "naglowek": "Producent",
+    "opis": "Jeśli wiesz.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "model",
+    "naglowek": "Model",
+    "opis": "Jeśli wiesz.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "tryb_pediatryczny",
+    "naglowek": "Czy są elektrody dla dzieci?",
+    "opis": "Tak / Nie.",
+    "obowiazkowe": false,
+    "rodzaj": "tak_nie"
+   },
+   {
+    "pole": "data_waznosci_elektrod",
+    "naglowek": "Elektrody ważne do",
+    "opis": "Data z opakowania elektrod, RRRR-MM-DD.",
+    "obowiazkowe": false,
+    "rodzaj": "data"
+   },
+   {
+    "pole": "data_waznosci_baterii",
+    "naglowek": "Bateria ważna do",
+    "opis": "RRRR-MM-DD.",
+    "obowiazkowe": false,
+    "rodzaj": "data"
+   },
+   {
+    "pole": "data_przegladu",
+    "naglowek": "Data ostatniego przeglądu",
+    "opis": "RRRR-MM-DD.",
+    "obowiazkowe": false,
+    "rodzaj": "data"
+   },
+   {
+    "pole": "dysponent_nazwa",
+    "naglowek": "Nazwa instytucji (dysponent)",
+    "opis": "Pełna nazwa, np. „Urząd Miasta Krosna”.",
+    "obowiazkowe": true,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "dysponent_typ",
+    "naglowek": "Rodzaj instytucji",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": false,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "dysponent_regon",
+    "naglowek": "REGON",
+    "opis": "9 lub 14 cyfr. Nie podawaj dla osoby prywatnej.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "telefon_kontaktowy",
+    "naglowek": "Telefon (portiernia, recepcja)",
+    "opis": "Numer instytucji, nie prywatny. Np. 134743000.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "email_kontaktowy",
+    "naglowek": "E-mail do zgłaszania zmian",
+    "opis": "Adres funkcyjny, np. sekretariat@…, nie imienny.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "id_lokalne",
+    "naglowek": "Twój numer urządzenia",
+    "opis": "Numer inwentarzowy lub oznaczenie AED u Ciebie.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   },
+   {
+    "pole": "data_weryfikacji",
+    "naglowek": "Kiedy sprawdzono, że AED jest na miejscu?",
+    "opis": "Data, RRRR-MM-DD.",
+    "obowiazkowe": true,
+    "rodzaj": "data"
+   },
+   {
+    "pole": "sposob_weryfikacji",
+    "naglowek": "Jak sprawdzono?",
+    "opis": "Wybierz z listy.",
+    "obowiazkowe": false,
+    "rodzaj": "lista"
+   },
+   {
+    "pole": "uwagi",
+    "naglowek": "Uwagi",
+    "opis": "Np. „w serwisie do 15 grudnia”.",
+    "obowiazkowe": false,
+    "rodzaj": "tekst"
+   }
+  ],
+  "slowniki": {
+   "status": [
+    {
+     "kod": "aktywny",
+     "etykieta": "Tak, działa i jest na miejscu"
+    },
+    {
+     "kod": "tymczasowo_niedostepny",
+     "etykieta": "Chwilowo nie (serwis, naprawa)"
+    },
+    {
+     "kod": "wycofany",
+     "etykieta": "Nie – urządzenie usunięto"
+    }
+   ],
+   "dostepnosc": [
+    {
+     "kod": "publiczna_24_7",
+     "etykieta": "Całodobowo, dla wszystkich"
+    },
+    {
+     "kod": "publiczna_w_godzinach",
+     "etykieta": "Dla wszystkich, w godzinach otwarcia"
+    },
+    {
+     "kod": "dla_klientow",
+     "etykieta": "Tylko dla klientów / użytkowników obiektu"
+    },
+    {
+     "kod": "tylko_personel",
+     "etykieta": "Wydaje personel (na prośbę)"
+    },
+    {
+     "kod": "mobilny",
+     "etykieta": "W pojeździe (np. OSP, policja)"
+    }
+   ],
+   "sposob_dostepu": [
+    {
+     "kod": "otwarta_szafka",
+     "etykieta": "Wisi w otwartej szafce / na uchwycie"
+    },
+    {
+     "kod": "szafka_z_alarmem",
+     "etykieta": "Szafka z alarmem, bez zamka"
+    },
+    {
+     "kod": "szafka_na_kod",
+     "etykieta": "Szafka zamknięta na kod"
+    },
+    {
+     "kod": "szafka_na_klucz",
+     "etykieta": "Szafka zamknięta na klucz"
+    },
+    {
+     "kod": "u_personelu",
+     "etykieta": "Trzeba poprosić personel"
+    },
+    {
+     "kod": "nieznany",
+     "etykieta": "Nie wiem"
+    }
+   ],
+   "typ_urzadzenia": [
+    {
+     "kod": "polautomatyczny",
+     "etykieta": "Półautomatyczny (trzeba nacisnąć przycisk)"
+    },
+    {
+     "kod": "automatyczny",
+     "etykieta": "Automatyczny (sam wykonuje wyładowanie)"
+    },
+    {
+     "kod": "nieznany",
+     "etykieta": "Nie wiem"
+    }
+   ],
+   "dysponent_typ": [
+    {
+     "kod": "jst",
+     "etykieta": "Samorząd (urząd gminy, miasta, powiatu)"
+    },
+    {
+     "kod": "administracja_rzadowa",
+     "etykieta": "Administracja rządowa"
+    },
+    {
+     "kod": "podmiot_leczniczy",
+     "etykieta": "Przychodnia / szpital"
+    },
+    {
+     "kod": "placowka_oswiatowa",
+     "etykieta": "Szkoła / przedszkole / uczelnia"
+    },
+    {
+     "kod": "sluzby",
+     "etykieta": "Służby (straż, policja, OSP)"
+    },
+    {
+     "kod": "transport",
+     "etykieta": "Transport (dworzec, lotnisko, metro)"
+    },
+    {
+     "kod": "firma",
+     "etykieta": "Firma / sklep / hotel"
+    },
+    {
+     "kod": "organizacja_pozarzadowa",
+     "etykieta": "Fundacja / stowarzyszenie / parafia"
+    },
+    {
+     "kod": "inny",
+     "etykieta": "Inny"
+    }
+   ],
+   "sposob_weryfikacji": [
+    {
+     "kod": "wizja_lokalna",
+     "etykieta": "Obejrzałem(-am) urządzenie na miejscu"
+    },
+    {
+     "kod": "potwierdzenie_dysponenta",
+     "etykieta": "Potwierdzam jako dysponent"
+    },
+    {
+     "kod": "zdjecie",
+     "etykieta": "Mam zdjęcie z datą"
+    },
+    {
+     "kod": "import_bez_weryfikacji",
+     "etykieta": "Nie sprawdzano"
+    }
+   ],
+   "wojewodztwo": [
+    {
+     "kod": "dolnośląskie",
+     "etykieta": "dolnośląskie"
+    },
+    {
+     "kod": "kujawsko-pomorskie",
+     "etykieta": "kujawsko-pomorskie"
+    },
+    {
+     "kod": "lubelskie",
+     "etykieta": "lubelskie"
+    },
+    {
+     "kod": "lubuskie",
+     "etykieta": "lubuskie"
+    },
+    {
+     "kod": "łódzkie",
+     "etykieta": "łódzkie"
+    },
+    {
+     "kod": "małopolskie",
+     "etykieta": "małopolskie"
+    },
+    {
+     "kod": "mazowieckie",
+     "etykieta": "mazowieckie"
+    },
+    {
+     "kod": "opolskie",
+     "etykieta": "opolskie"
+    },
+    {
+     "kod": "podkarpackie",
+     "etykieta": "podkarpackie"
+    },
+    {
+     "kod": "podlaskie",
+     "etykieta": "podlaskie"
+    },
+    {
+     "kod": "pomorskie",
+     "etykieta": "pomorskie"
+    },
+    {
+     "kod": "śląskie",
+     "etykieta": "śląskie"
+    },
+    {
+     "kod": "świętokrzyskie",
+     "etykieta": "świętokrzyskie"
+    },
+    {
+     "kod": "warmińsko-mazurskie",
+     "etykieta": "warmińsko-mazurskie"
+    },
+    {
+     "kod": "wielkopolskie",
+     "etykieta": "wielkopolskie"
+    },
+    {
+     "kod": "zachodniopomorskie",
+     "etykieta": "zachodniopomorskie"
+    }
+   ]
+  }
+ }
 };

@@ -7,6 +7,26 @@ module.exports = async function (t) {
     'biblioteki wczytane (PapaParse, SheetJS, Leaflet 1.9.4)');
   ok(await b.ocen("!!(AED.ui.mapa && AED.ui.formularz && AED.ui.wynik && AED.ui.duplikaty)"), 'moduły interfejsu wczytane');
   ok(await b.ocen("!/openstreetmap|overpass|odbl/i.test(document.documentElement.outerHTML)"), 'strona nie wspomina OpenStreetMap / Overpass / ODbL');
+  // nazwa serwisu i oznaczenie prototypu (strona nie może udawać serwisu rządowego)
+  ok(await b.ocen("/^Namiar na puls/.test(document.title) || /Namiar na puls$/.test(document.title)"), 'tytuł strony zawiera nazwę „Namiar na puls”', await b.ocen('document.title'));
+  ok(await b.ocen("document.querySelector('.brand').textContent.trim() === 'Namiar na puls' && /Prototyp/i.test(document.querySelector('.site-header').textContent)"),
+    'nagłówek: marka „Namiar na puls” i widoczne oznaczenie „Prototyp”');
+  ok(await b.ocen("/nie jest serwis(em)?\\s+administracji\\s+publicznej/i.test(document.body.textContent) && !document.querySelector('img[src*=\"Herb\" i], img[src*=\"godlo\" i]')"),
+    'informacja, że to nie serwis administracji publicznej; brak godła');
+  ok(await b.ocen("!/Misja AED</.test(document.body.outerHTML) && !/Misja AED(?! –)/.test(document.querySelector('.site-header').textContent)"), 'stara nazwa „Misja AED” nie jest marką strony');
+  ok(await b.ocen("document.fonts.check('16px \"Open Sans\"') && getComputedStyle(document.body).fontFamily.indexOf('Open Sans') >= 0"), 'krój Open Sans (lokalna kopia)');
+  // każdy skrypt dołączony dokładnie raz (podwójny gov.js resetował stan)
+  const duble = await b.ocen("(function(){ const n = {}; document.querySelectorAll('script[src]').forEach(function (s) { const k = s.getAttribute('src'); n[k] = (n[k] || 0) + 1; }); return Object.keys(n).filter(function (k) { return n[k] > 1; }); })()");
+  ok(!duble.length, 'każdy <script src> dołączony tylko raz', duble);
+  ok(await b.ocen("getComputedStyle(document.querySelector('.brand__portal'), '::before').content === 'none'"), 'nagłówek bez czerwonej pionowej kreski z gov.pl');
+  // tokeny kolorów jak gov.pl
+  ok(await b.ocen("getComputedStyle(document.documentElement).getPropertyValue('--c-primary').trim() === '#0052a5' && getComputedStyle(document.querySelector('.btn--primary')).backgroundColor === 'rgb(0, 82, 165)'"),
+    'kolor podstawowy #0052a5 (gov.pl) na przycisku głównym');
+  // proste szablony dla dysponentów: najpierw Excel, potem CSV, pełny wzorzec jako drugorzędny
+  ok(await b.ocen("(function(){ const k = document.querySelector('section[data-route=start] .pobierz-szablon'); if (!k) return false; const a = k.querySelectorAll('a[download]'); return a[0].getAttribute('href') === 'wzorzec/formularz_dysponenta_AED.xlsx' && a[1].getAttribute('href') === 'wzorzec/formularz_dysponenta_AED.csv' && !!k.querySelector('details a[href=\"wzorzec/wzorcowy_zakres_danych_AED.xlsx\"]'); })()"),
+    'start: „Pobierz prosty formularz (Excel)” pierwszy, potem CSV, pełny wzorzec w <details>');
+  const szablony = await b.ocen("Promise.all(['wzorzec/formularz_dysponenta_AED.xlsx','wzorzec/formularz_dysponenta_AED.csv'].map(function (u) { return fetch(u, { method: 'HEAD' }).then(function (r) { return r.status; }); }))");
+  ok(szablony.every(function (x) { return x === 200; }), 'pliki prostych formularzy istnieją', szablony);
 
   // klawiatura: pierwszy Tab – link „Przejdź do treści”, Enter – fokus na nagłówku ekranu
   await b.ocen("document.activeElement && document.activeElement.blur(); window.scrollTo(0,0); true");
@@ -38,6 +58,8 @@ module.exports = async function (t) {
     await b.pauza(250);
     const w = await b.ocen('document.documentElement.scrollWidth');
     ok(w <= 320, '320 px – ekran „' + trasa + '” bez przewijania w poziomie', w);
+    if (trasa === 'start') ok(await b.ocen("(function(){ const p = document.querySelector('.proto-bar'); const r = p.getBoundingClientRect(); return getComputedStyle(p).display !== 'none' && r.height > 0 && r.width <= 320 && /Prototyp/i.test(p.textContent); })()"),
+      '320 px – pasek „Prototyp” widoczny');
   }
   await t.zrzut('formularz-320');
   await b.szerokosc(1280);
