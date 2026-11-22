@@ -1,4 +1,4 @@
-/* Krok 4: „Zatwierdź i wyślij do bazy gov.pl (Symulacja)”.
+/* Krok 4: „Wyślij do zatwierdzenia przez bazę gov.pl (Symulacja)”.
    Przycisk zablokowany (aria-disabled, w kolejności Tab, lista braków) → kroki 1→4 + metadane → wysyłka (stan ładowania,
    aria-busy) → potwierdzenie z liczbą 1 → druga wysyłka → liczba 2 → „Pobierz plik wyniki.gov” = plik SQLite.
    Tryb serwera (serwer.py z bazą tymczasową), a potem tryb przeglądarkowy (sql.js + IndexedDB, bez API). 320 px. */
@@ -25,13 +25,11 @@ module.exports = async function (t) {
   // ---- przed ukończeniem kroków: przycisk zablokowany, ale osiągalny klawiaturą i z opisem
   await b.ocen("location.hash = '#wynik'; true");
   await b.czekaj("!!document.getElementById('gov-wyslij') && !!document.querySelector('#gov-gotowosc .gov-braki')");
-  ok(await b.ocen("(function(){ const x = document.getElementById('gov-wyslij'); return x.textContent.trim() === 'Zatwierdź i wyślij do bazy gov.pl (Symulacja)' && x.getAttribute('aria-disabled') === 'true' && !x.disabled && x.tabIndex === 0; })()"),
+  ok(await b.ocen("(function(){ const x = document.getElementById('gov-wyslij'); return x.textContent.trim() === 'Wyślij do zatwierdzenia przez bazę gov.pl' && x.getAttribute('aria-disabled') === 'true' && !x.disabled && x.tabIndex === 0; })()"),
     'przed krokami: przycisk z właściwym tekstem, aria-disabled (nie disabled), w kolejności Tab');
   ok(await b.ocen("/nieaktywny/.test(document.getElementById(document.getElementById('gov-wyslij').getAttribute('aria-describedby')).textContent)"),
     'opis przycisku mówi, dlaczego jest nieaktywny');
   ok(await b.ocen("!!document.querySelector('#gov-gotowosc a[href=\"#zrodla\"]')"), 'lista braków z linkiem do kroku 1');
-  ok(await b.ocen("/symulacja/i.test(document.getElementById('gov-wysylka').textContent) && /nie trafiają do żadnego prawdziwego\\s+systemu/.test(document.getElementById('gov-info').textContent)"),
-    'jasna informacja: to symulacja');
   await b.ocen("document.getElementById('gov-wyslij').click()");
   await b.pauza(200);
   ok(await b.ocen("document.activeElement.id === 'gov-braki-tytul' && document.getElementById('gov-postep').textContent === ''"),
@@ -93,40 +91,17 @@ module.exports = async function (t) {
     }
     ok(await b.ocen("document.activeElement.id === 'gov-wynik-tytul' && document.getElementById('gov-wysylka').getAttribute('aria-busy') === 'false'"),
       opis + ': potwierdzenie z fokusem, aria-busy=false');
-    ok(await b.ocen("document.querySelector('.gov-potwierdzenie').getAttribute('role') === 'status' && document.getElementById('gov-status').textContent === 'zatwierdzono_gov' && document.getElementById('gov-numer').textContent.trim().length > 0"),
-      opis + ': numer zgłoszenia i status „zatwierdzono_gov”');
-    return Number((await b.ocen("document.getElementById('gov-liczba').textContent")).replace(/\D/g, ''));
-  }
-
-  async function pobierzBaze(opis) {
-    // Chrome nadpisuje plik o tej samej nazwie – czyścimy katalog, by wykryć nowe pobranie
-    if (fs.existsSync(t.pobrane)) fs.readdirSync(t.pobrane).forEach(function (f) { fs.rmSync(path.join(t.pobrane, f), { force: true }); });
-    const przed = [];
-    // prawdziwy klawisz (nie click()) – Chrome dopuszcza kolejne pobranie z tej samej strony tylko po działaniu użytkownika
-    await b.ocen("document.getElementById('gov-pobierz').focus()");
-    await b.klawisz('Enter');
-    let plik = null;
-    for (let i = 0; i < 60 && !plik; i++) {
-      await b.pauza(150);
-      if (fs.existsSync(t.pobrane)) plik = fs.readdirSync(t.pobrane).find(function (f) { return /^wyniki.*\.gov$/.test(f) && przed.indexOf(f) < 0; }) || null;
-    }
-    ok(!!plik, opis + ': pobrano plik wyniki.gov', plik || { pliki: fs.existsSync(t.pobrane) ? fs.readdirSync(t.pobrane) : [], stan: await b.ocen("(document.getElementById('gov-pobierz-stan') || {}).textContent + ' | ' + document.activeElement.id") });
-    if (plik) {
-      await b.pauza(200);
-      const naglowek = fs.readFileSync(path.join(t.pobrane, plik)).subarray(0, 16).toString('latin1');
-      ok(naglowek === 'SQLite format 3\u0000', opis + ': plik zaczyna się od „SQLite format 3”', naglowek);
-    }
+    ok(await b.ocen("document.querySelector('.gov-potwierdzenie').getAttribute('role') === 'status' && /Dane zostały wysłane do bazy dane\.gov\.pl/.test(document.getElementById('gov-wynik-tytul').textContent) && !document.getElementById('gov-pobierz') && !document.querySelector('#gov-wynik table')"),
+      opis + ': samo potwierdzenie „Dane zostały wysłane do bazy dane.gov.pl” (bez statystyk i pobierania)');
+    return await b.ocen('AED.gov.statystyki().then(function (s) { return s.liczba; })');
   }
 
   const tryb = await b.ocen('AED.gov.tryb()');
   ok(atrapa || tryb === (t.api ? 'serwer' : 'przegladarka'), 'tryb bazy: ' + tryb + (t.api ? ' (serwer.py z API)' : ''), tryb);
   const n1 = await wyslij('1. wysyłka');
   ok(n1 === 1, '1. wysyłka: w pliku wyniki.gov jest 1 zgłoszenie', n1);
-  ok(await b.ocen("!!document.querySelector('#gov-wynik .gov-stat') && /wyniki\\.gov/.test(document.getElementById('gov-tryb').textContent)"),
-    'mini-statystyki bazy i informacja o trybie');
   const n2 = await wyslij('2. wysyłka');
   ok(n2 === 2, '2. wysyłka: liczba zgłoszeń rośnie do 2', n2);
-  ok(await b.ocen("document.querySelectorAll('#gov-wynik table tbody tr').length === 2"), 'tabela ostatnich zgłoszeń ma 2 wiersze');
   // wyjście z kroku 4 w trakcie symulacji: wysyłka przerwana, nic nie zapisano, komunikat po powrocie
   await b.ocen("document.getElementById('gov-wyslij').click(); true");
   await b.czekaj("document.getElementById('gov-wysylka').getAttribute('aria-busy') === 'true'", 5000);
@@ -140,7 +115,6 @@ module.exports = async function (t) {
   ok((await b.ocen('AED.gov.statystyki().then(function (s) { return s.liczba; })')) === 2, 'przerwana wysyłka niczego nie zapisała (nadal 2)');
   const n3 = await wyslij('3. wysyłka (po przerwaniu)');
   ok(n3 === 3, 'po przerwaniu można wysłać ponownie – liczba 3', n3);
-  await pobierzBaze('tryb ' + tryb);
   if (t.api && !atrapa) ok(fs.existsSync(t.plikBazy) && fs.statSync(t.plikBazy).size > 0, 'serwer zapisał bazę w pliku tymczasowym', t.plikBazy);
 
   // 320 px
@@ -153,12 +127,10 @@ module.exports = async function (t) {
 
   // ---- tryb przeglądarkowy (sql.js + IndexedDB) – bez API serwera
   if (!atrapa && await b.ocen('typeof AED.gov.konfiguruj === "function"')) {
-    await b.ocen("AED.gov.konfiguruj({ tryb: 'przegladarka' }); AED.ui.gov.stan.tryb = null; AED.ui.gov.stan.wynik = null; document.getElementById('gov-tresc').textContent = ''; AED.ui.gov.renderuj(); true");
+    await b.ocen("AED.gov.konfiguruj({ tryb: 'przegladarka' }); AED.ui.gov.stan.wynik = null; document.getElementById('gov-tresc').textContent = ''; AED.ui.gov.renderuj(); true");
     await b.czekaj("document.getElementById('gov-wyslij').getAttribute('aria-disabled') !== 'true'");
     const p1 = await wyslij('przeglądarka');
     ok(p1 === 1, 'przeglądarka: osobna baza w tej przeglądarce – 1 zgłoszenie', p1);
-    ok(await b.ocen("/przeglądarka/.test(document.getElementById('gov-tryb').textContent) && typeof initSqlJs === 'function'"), 'przeglądarka: sql.js wczytany leniwie, opis trybu');
-    await pobierzBaze('tryb przeglądarki');
     await b.ocen("AED.gov.konfiguruj({ tryb: null }); true");
   }
   await t.zrzut('gov');

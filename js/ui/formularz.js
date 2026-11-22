@@ -1006,26 +1006,6 @@
     $('fd-koniec-bledy').focus();
     oglos('Nie można jeszcze przekazać danych. ' + lista.map(function (x) { return x.tekst; }).join(' '), true);
   }
-  function pobierzCsv() {
-    const p = przeszkody();
-    if (p.length) { pokazPrzeszkody(p); return; }
-    const terc = st.urzadzenia.length && st.urzadzenia.every(function (r) { return /^\d{7}$/.test(String(r.kod_terc_gminy || '')) && r.kod_terc_gminy === st.urzadzenia[0].kod_terc_gminy; })
-      ? st.urzadzenia[0].kod_terc_gminy : null;
-    let nazwaTerc = null;
-    if (terc && AED.eksport && AED.eksport.nazwaPliku) { try { nazwaTerc = AED.eksport.nazwaPliku('csv', null, { terc: terc }); } catch (e) { nazwaTerc = null; } }
-    const nazwa = nazwaTerc || 'aed_' + String(st.dysponent.dysponent_nazwa || 'dysponent').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/ł/g, 'l').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) + '_' + teraz().slice(0, 10) + '.csv';
-    let n;
-    try { n = pobierz(nazwa, F().csv(rekordyDoWydania()), 'text/csv;charset=utf-8'); } catch (e) {
-      console.error(e);
-      const kont = $('fd-koniec-stan'); kont.textContent = '';
-      kont.appendChild(h('p', { class: 'alert alert--err', role: 'alert' }, 'Nie udało się przygotować pliku: ' + (e && e.message ? e.message : e)));
-      return;
-    }
-    const kont = $('fd-koniec-stan'); kont.textContent = '';
-    kont.appendChild(h('p', { class: 'alert alert--ok' }, ikona('ok'), ' Pobrano plik ' + nazwa + ' (' + AED.dom.rozmiar(n) + '). Opublikuj go według instrukcji powyżej.'));
-    oglos('Pobrano plik ' + nazwa + '.');
-  }
   function dodajDoScalania() {
     const p = przeszkody();
     if (p.length) { pokazPrzeszkody(p); return; }
@@ -1101,24 +1081,50 @@
     return h('section', { class: 'fd-sekcja', id: 'fd-koniec', 'aria-labelledby': 'h-fd-koniec' },
       h('h2', { id: 'h-fd-koniec', tabindex: '-1' }, '3. Przekaż dane'),
       h('p', { id: 'fd-koniec-liczba' }),
-      h('div', { class: 'cards cards--2' },
-        h('article', { class: 'card' },
-          h('h3', null, 'Opublikuję dane sam'),
-          h('p', null, 'Pobierz plik CSV zgodny ze wzorcem i opublikuj go w portalu ', h('span', { lang: 'en' }, 'dane.gov.pl'), ':'),
-          h('ol', { class: 'kroki-publikacji' },
-            h('li', null, 'Pobierz plik przyciskiem poniżej.'),
-            h('li', null, 'Zaloguj się do portalu ', AED.dom.linkZewn('https://dane.gov.pl', 'dane.gov.pl'), ' kontem dostawcy danych Twojej instytucji ',
-              '(jeśli go nie masz, zapytaj osobę odpowiedzialną za otwarte dane w urzędzie).'),
-            h('li', null, 'Dodaj zbiór, np. „Defibrylatory AED – nazwa instytucji”, kategoria „Zdrowie”. Wybierz licencję taką jak w kroku 1 formularza.'),
-            h('li', null, 'Dodaj pobrany plik CSV jako zasób i opublikuj zbiór.'),
-            h('li', null, 'Przy zmianach zaktualizuj ten sam zbiór. Nie zmieniaj identyfikatorów urządzeń (id_aed).')),
-          h('button', { type: 'button', class: 'btn btn--primary', id: 'fd-pobierz-csv', onclick: pobierzCsv }, 'Pobierz plik CSV do publikacji')),
+      h('div', { class: 'cards' },
         h('article', { class: 'card' },
           h('h3', null, 'Dodaj do wspólnego zbioru'),
           h('p', null, 'Gdy scalasz dane z wielu źródeł w tej przeglądarce (np. jako koordynator), dodaj te urządzenia jako jedno źródło ',
             'w rejestrze źródeł. Przejdziesz do kroku 1 scalania.'),
           h('button', { type: 'button', class: 'btn btn--secondary', id: 'fd-do-scalania', onclick: dodajDoScalania }, 'Dodaj do scalania'))),
+      h('section', { class: 'gov-wysylka', id: 'fd-gov', 'aria-labelledby': 'h-fd-gov' },
+        h('h2', { id: 'h-fd-gov' }, 'Wyślij do zatwierdzenia przez bazę gov.pl'),
+        h('div', { class: 'gov-przycisk' },
+          h('button', { type: 'button', class: 'btn btn--gov btn--big', id: 'fd-wyslij-gov', 'aria-describedby': 'fd-gov-opis', onclick: wyslijDoGov },
+            'Wyślij do zatwierdzenia przez bazę gov.pl'),
+          h('p', { class: 'hint', id: 'fd-gov-opis' }, 'Wyśle dane do bazy dane.gov.pl (symulacja – zapis w lokalnej bazie projektu).')),
+        h('p', { class: 'remote-status gov-postep', id: 'fd-gov-postep', role: 'status', 'aria-live': 'polite' }),
+        h('div', { id: 'fd-gov-wynik' })),
       h('div', { id: 'fd-koniec-stan' }));
+  }
+
+  let wysylanieGov = false;
+  async function wyslijDoGov() {
+    if (wysylanieGov) return;
+    const G = AED.gov, wynik = $('fd-gov-wynik'), postep = $('fd-gov-postep'), btn = $('fd-wyslij-gov');
+    wynik.textContent = '';
+    const p = przeszkody();
+    if (p.length) { pokazPrzeszkody(p); return; }
+    if (!G) { wynik.appendChild(h('p', { class: 'alert alert--err', role: 'alert' }, 'Nie wczytano modułu wysyłki (js/core/gov.js).')); return; }
+    $('fd-koniec-stan').textContent = '';
+    wysylanieGov = true; btn.setAttribute('aria-disabled', 'true'); btn.classList.add('is-busy');
+    try {
+      const zgl = G.zbierzZgloszenieFormularza(rekordyDoWydania(), { dysponent: String(st.dysponent.dysponent_nazwa || ''), licencja: st.licencja });
+      const w = await G.wyslij(zgl, { onPostep: function (t) { postep.textContent = t; }, opoznienieMs: 1500 });
+      postep.textContent = '';
+      const pobrano = AED.ui.gov ? await AED.ui.gov.zapiszPlikBazy(zgl, w) : false;
+      wynik.appendChild(h('div', { class: 'alert alert--ok gov-potwierdzenie', role: 'status' },
+        h('h3', { id: 'fd-gov-tytul', tabindex: '-1' }, ikona('ok'), ' Dane zostały wysłane do bazy dane.gov.pl'),
+        h('p', null, 'Dane zapisano w lokalnej bazie projektu' + (pobrano ? ' i pobrano plik wyniki_gov.txt z wysłanymi danymi.' : '.'))));
+      $('fd-gov-tytul').focus();
+      oglos('Dane zostały wysłane do bazy dane.gov.pl (symulacja).');
+    } catch (e) {
+      console.warn('[AED] wysyłka z formularza:', e);
+      postep.textContent = '';
+      wynik.appendChild(h('p', { class: 'alert alert--err', role: 'alert' }, 'Nie udało się wysłać zgłoszenia: ' + (e && e.message ? e.message : e)));
+    } finally {
+      wysylanieGov = false; btn.removeAttribute('aria-disabled'); btn.classList.remove('is-busy');
+    }
   }
 
   // ------------------------------------------------------------------ całość

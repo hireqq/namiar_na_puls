@@ -36,6 +36,7 @@
     if (AED.ui.duplikaty) AED.ui.duplikaty.init();
     if (AED.ui.wynik) AED.ui.wynik.init();
     if (AED.ui.gov) AED.ui.gov.init();
+    if (AED.ui.prywatnosc) AED.ui.prywatnosc.init();
     if (AED.ui.formularz) AED.ui.formularz.init();
     AED.router.start();
   });

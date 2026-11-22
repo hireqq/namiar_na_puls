@@ -161,20 +161,6 @@ module.exports = async function (t) {
   ok(await b.ocen("document.getElementById('fd-d-dysponent_nazwa').value === 'Szkoła Podstawowa nr 1 w Krośnie' && /Przywrócono/.test(document.getElementById('fd-szkic-stan').textContent)"),
     'szkic przywrócony po odświeżeniu (dysponent i 2 urządzenia)');
 
-  // CSV do publikacji
-  await b.ocen("document.getElementById('fd-pobierz-csv').click()");
-  let csv = null;
-  for (let i = 0; i < 40 && !csv; i++) {
-    await b.pauza(150);
-    if (fs.existsSync(t.pobrane)) csv = fs.readdirSync(t.pobrane).find(function (f) { return /\.csv$/.test(f); }) || null;
-  }
-  ok(!!csv, 'pobrano plik CSV do publikacji', csv);
-  if (csv) {
-    const tresc = fs.readFileSync(path.join(t.pobrane, csv), 'utf8').replace(/^﻿/, '');
-    const wiersze = tresc.trim().split(/\r?\n/);
-    ok(wiersze.length === 3 && /Szkoła Podstawowa nr 1 w Krośnie/.test(tresc) && /^id_aed,/.test(wiersze[0]), 'CSV: nagłówek wzorca, 2 urządzenia, dane dysponenta', wiersze.length);
-  }
-
   // dodaj do scalania → krok 1
   await b.ocen("document.getElementById('fd-do-scalania').click()");
   await b.czekaj("location.hash === '#zrodla'");

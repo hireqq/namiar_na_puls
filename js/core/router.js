@@ -5,7 +5,7 @@
   'use strict';
 
   const KROKI = ['zrodla', 'mapowanie', 'walidacja', 'wynik'];
-  const NAZWA_SERWISU = 'Namiar na puls';
+  const NAZWA_SERWISU = 'Namiar na Puls';
   let pierwszeWejscie = true;
   let ostatnia = 'start';
 
@@ -54,7 +54,7 @@
       if (biezaca) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
 
-    document.title = (h1 ? h1.textContent.trim() + ' – ' : '') + NAZWA_SERWISU;
+    document.title = NAZWA_SERWISU;
 
     // Przy pierwszym wczytaniu nie przejmujemy fokusu (użytkownik zaczyna od początku strony)
     if (!pierwszeWejscie && h1) {

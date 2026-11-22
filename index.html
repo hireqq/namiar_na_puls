@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Namiar na puls – wspólny zbiór danych o defibrylatorach AED</title>
+  <title>Namiar na Puls</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
   <meta name="description" content="Namiar na puls – prototyp narzędzia do łączenia danych o defibrylatorach AED z wielu źródeł w jeden zbiór zgodny ze wzorcem dla dane.gov.pl, z prostym formularzem dla dysponentów. Nie jest serwisem administracji publicznej.">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
@@ -11,22 +12,13 @@
 <body>
   <a class="skip-link" href="#tresc">Przejdź do treści</a>
 
-  <div class="proto-bar">
-    <div class="container">
-      <p><strong>Prototyp</strong> Projekt hackathonowy (HackNation 2026). To nie jest serwis administracji publicznej ani część gov.pl – wysyłka „do bazy gov.pl” jest tylko symulacją.</p>
-    </div>
-  </div>
-
   <header class="site-header">
     <div class="container site-header__inner">
       <a class="brand" href="#start">
-        <svg class="brand__icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-          <path d="M16 28s-11-6.6-11-15A6 6 0 0 1 16 9a6 6 0 0 1 11 4c0 8.4-11 15-11 15z" fill="currentColor"/>
-          <path d="M6 16h5l2-4 3 8 2.5-5H26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <img class="brand__icon" src="img/logo.png" alt="" width="37" height="40">
         <span class="brand__text">Namiar na puls</span>
       </a>
-      <p class="brand__portal">Dane o defibrylatorach AED <span class="proto-badge">Prototyp</span></p>
+      <p class="brand__portal">Dane o defibrylatorach AED</p>
       <nav aria-label="Menu główne">
         <ul class="top-nav">
           <li><a href="#start">Start</a></li>
@@ -60,12 +52,6 @@
       <p class="lead">Przy nagłym zatrzymaniu krążenia liczy się każda minuta. To narzędzie łączy rozproszone dane o AED
         (pliki gmin, instytucji i firm, zbiory już opublikowane w sieci oraz wpisy z formularza dysponenta) w jeden zbiór zgodny ze wzorcem, gotowy do publikacji w portalu
         <span lang="en">dane.gov.pl</span>.</p>
-      <p class="note">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6z" fill="currentColor"/></svg>
-        <span>Wgrane pliki są przetwarzane w Twojej przeglądarce. Na końcu możesz zasymulować zgłoszenie zbioru „do bazy gov.pl” – dane
-          trafiają wtedy tylko do lokalnego pliku <code>wyniki.gov</code> (na tym komputerze), nie do prawdziwego systemu.</span>
-      </p>
-
       <div class="cards cards--2">
         <article class="card card--path">
           <h2>Scal dane z wielu źródeł</h2>
@@ -250,6 +236,10 @@
         <p>Te informacje wpiszesz w portalu przy dodawaniu zbioru albo pobierzesz jako plik XML dla harvestera.
           Pola oznaczone gwiazdką (*) są obowiązkowe.</p>
         <div id="wyn-metadane"></div>
+        <section class="gov-wysylka" id="gov-wysylka" aria-labelledby="h-gov">
+          <h2 id="h-gov" tabindex="-1">Wyślij do zatwierdzenia przez bazę gov.pl</h2>
+          <div id="gov-tresc"></div>
+        </section>
         <h2 id="h-wyn-pliki" tabindex="-1">Pobierz pliki</h2>
         <div id="wyn-pliki"></div>
         <h2 id="h-wyn-podglad">Podgląd pliku CSV</h2>
@@ -257,53 +247,8 @@
       </div>
 
 
-      <h2 id="h-wyn-instrukcja">Jak opublikować zbiór w dane.gov.pl</h2>
       <div class="instrukcja">
-        <p>Zbiór publikuje instytucja, która ma konto dostawcy danych w portalu
-          <a href="https://dane.gov.pl" target="_blank" rel="noopener noreferrer"><span lang="en">dane.gov.pl</span><span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>.
-          Jeśli Twoja instytucja nie ma jeszcze konta, zapytaj osobę odpowiedzialną za otwarte dane w urzędzie
-          (często pełnomocnika ds. otwartości danych) albo skontaktuj się z administratorem portalu.</p>
-
-        <h3>Sposób 1: ręczne dodanie zbioru (dla pierwszej publikacji)</h3>
-        <ol class="kroki-publikacji">
-          <li>Pobierz plik <strong>CSV</strong> (zalecany format) i – jeśli chcesz – XLSX oraz GeoJSON.</li>
-          <li>Zaloguj się do portalu i otwórz panel dostawcy (panel administracyjny instytucji).</li>
-          <li>Dodaj nowy zbiór danych. Przepisz z formularza powyżej: tytuł, opis, kategorię, słowa kluczowe
-            i częstotliwość aktualizacji.</li>
-          <li>Wskaż warunki ponownego wykorzystania (licencję) zgodnie z sekcją „Licencja zbioru”. W opisie zbioru
-            podaj wymagane atrybucje (kogo trzeba wymienić jako źródło danych).</li>
-          <li>Dodaj zasoby: plik CSV jako główny, pozostałe formaty jako kolejne zasoby. Dołącz też rejestr źródeł
-            (CSV) – pokazuje, skąd pochodzi każdy rekord.</li>
-          <li>Sprawdź podgląd i opublikuj zbiór.</li>
-        </ol>
-
-        <h3>Sposób 2: automatyczne pobieranie (harvester XML)</h3>
-        <p>Przydaje się, gdy zbiór będzie regularnie aktualizowany, a instytucja ma własny serwer lub stronę.</p>
-        <ol class="kroki-publikacji">
-          <li>Opublikuj pliki danych na stronie instytucji pod stałymi adresami zaczynającymi się od <code>https://</code>.
-            Ten adres wpisz w formularzu metadanych powyżej (pole „Adres, pod którym opublikujesz pliki”).</li>
-          <li>Pobierz plik <strong>metadane XML</strong> i opublikuj go także pod stałym adresem.</li>
-          <li>Zgłoś administratorowi portalu adres pliku XML, aby skonfigurował harvester dla Twojej instytucji.
-            Szczegóły i aktualny schemat XML znajdziesz w
-            <a href="https://dane.gov.pl/pl/knowledgebase" target="_blank" rel="noopener noreferrer">Bazie wiedzy portalu<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>.</li>
-          <li>Przy każdej aktualizacji podmień pliki pod tymi samymi adresami i zaktualizuj plik XML (datę aktualizacji).
-            Portal sam pobierze zmiany.</li>
-        </ol>
-
-        <h3>Aktualizacja zbioru</h3>
-        <ul>
-          <li><strong>Nie zmieniaj identyfikatorów <code>id_aed</code>.</strong> To stały numer urządzenia. Dzięki niemu
-            aplikacje (np. mapy AED) rozpoznają, że rekord został zaktualizowany, a nie dodany od nowa.</li>
-          <li>Aktualizuj istniejący zbiór – dodaj nową wersję pliku do tego samego zbioru zamiast tworzyć nowy zbiór.</li>
-          <li>Urządzeń wycofanych nie usuwaj – zmień ich status na „wycofany”. Dzięki temu nie wrócą z innych źródeł.</li>
-          <li>Przy następnym scalaniu wczytaj opublikowany zbiór jako jedno ze źródeł – identyfikatory zostaną zachowane.</li>
-        </ul>
-
-        <h3>Kontakt i zgłaszanie błędów</h3>
-        <p>W opisie zbioru podaj, gdzie zgłaszać błędy (np. adres e-mail wydziału). Użytkownicy portalu mogą też
-          zgłaszać uwagi do zbioru bezpośrednio w portalu.</p>
-
-        <h3>Przydatne dokumenty</h3>
+        <h2 id="h-wyn-dokumenty">Przydatne dokumenty</h2>
         <ul class="link-list">
           <li><a href="https://www.gov.pl/web/cyfryzacja/standardy-otwartosci-danych" target="_blank" rel="noopener noreferrer">Standardy otwartości danych (gov.pl)<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a>
             – opis Standardu technicznego, prawnego, API i bezpieczeństwa.</li>
@@ -313,13 +258,6 @@
             – instrukcje dla dostawców danych, szkolenia, pytania i odpowiedzi.</li>
         </ul>
       </div>
-      <section class="gov-wysylka" id="gov-wysylka" aria-labelledby="h-gov">
-        <h2 id="h-gov" tabindex="-1">Zatwierdź i wyślij do bazy gov.pl <span class="gov-wysylka__sym">(symulacja)</span></h2>
-        <p class="alert alert--info gov-wysylka__info" id="gov-info"><strong>To symulacja.</strong> Dane nie trafiają do żadnego prawdziwego
-          systemu gov.pl. Zgłoszenie zapisujemy w lokalnym pliku bazy <code>wyniki.gov</code>, aby pokazać, jak mogłoby wyglądać przekazanie zbioru.</p>
-        <div id="gov-tresc"></div>
-      </section>
-
       <div class="step-actions">
         <a class="btn btn--ghost" href="#walidacja">Wstecz</a>
       </div>
@@ -355,12 +293,36 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p class="site-footer__nazwa">Namiar na puls</p>
+      <h2 class="visually-hidden">Stopka</h2>
+      <div class="site-footer__links">
+        <a class="site-footer__logo" href="#start"><img src="img/logo.png" alt="" width="28" height="30"><span>Namiar na Puls</span></a>
+        <ul>
+          <li><a href="https://www.gov.pl/web/gov/polityka-dotyczaca-cookies" target="_blank" rel="noopener noreferrer">Polityka cookies<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a></li>
+          <li><a href="https://www.gov.pl/web/gov/prawa-autorskie" target="_blank" rel="noopener noreferrer">Prawa autorskie<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a></li>
+          <li><a href="https://www.gov.pl/web/gov/warunki-korzystania" target="_blank" rel="noopener noreferrer">Warunki korzystania<span class="visually-hidden"> (otwiera się w nowej karcie)</span></a></li>
+          <li><button type="button" id="manage-consent" class="privacy-settings-button" aria-haspopup="dialog" aria-controls="ustawienia-prywatnosci">Ustawienia prywatności</button></li>
+        </ul>
+      </div>
+      <p class="site-footer__autorzy">Autorzy: <strong>wsizENJOYERS</strong></p>
       <p>Prototyp przygotowany na HackNation 2026 (zadanie „Misja AED – Dane na ratunek”). Nie jest serwisem administracji
         publicznej i nie jest powiązany z gov.pl ani dane.gov.pl – korzysta tylko z podobnej stylistyki i publicznych usług.</p>
       <p><a href="LICENSES.md">Licencje użytych bibliotek i fontu</a> · krój Open Sans (SIL OFL 1.1)</p>
     </div>
   </footer>
+
+  <dialog id="ustawienia-prywatnosci" class="dialog-prywatnosc" aria-labelledby="h-prywatnosc">
+    <form method="dialog">
+      <h2 id="h-prywatnosc">Ustawienia prywatności</h2>
+      <p>Ta aplikacja nie używa plików cookies śledzących, reklamowych ani analitycznych i niczego nie wysyła do zewnętrznych usług statystycznych.</p>
+      <ul class="prywatnosc-lista">
+        <li><label><input type="checkbox" checked disabled> <strong>Niezbędne</strong> – szkic formularza dysponenta zapisywany tylko w tej przeglądarce (pamięć lokalna). Zawsze włączone.</label></li>
+        <li><label><input type="checkbox" disabled> <strong>Analityczne</strong> – nie używamy.</label></li>
+        <li><label><input type="checkbox" disabled> <strong>Marketingowe</strong> – nie używamy.</label></li>
+      </ul>
+      <p>Szkic możesz w każdej chwili usunąć przyciskiem „Wyczyść formularz i usuń szkic” w formularzu dysponenta.</p>
+      <div class="dialog-prywatnosc__akcje"><button class="btn btn--primary" value="zamknij">Zamknij</button></div>
+    </form>
+  </dialog>
 
   <!-- Biblioteki (kopie lokalne, licencje w vendor/*/LICENSE) -->
   <script src="vendor/papaparse/papaparse.min.js"></script>
@@ -391,6 +353,7 @@
   <script src="js/ui/mapa.js"></script>
   <script src="js/ui/formularz.js"></script>
   <script src="js/ui/gov.js"></script>
+  <script src="js/ui/prywatnosc.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -8,9 +8,9 @@ module.exports = async function (t) {
   ok(await b.ocen("!!(AED.ui.mapa && AED.ui.formularz && AED.ui.wynik && AED.ui.duplikaty)"), 'moduły interfejsu wczytane');
   ok(await b.ocen("!/openstreetmap|overpass|odbl/i.test(document.documentElement.outerHTML)"), 'strona nie wspomina OpenStreetMap / Overpass / ODbL');
   // nazwa serwisu i oznaczenie prototypu (strona nie może udawać serwisu rządowego)
-  ok(await b.ocen("/^Namiar na puls/.test(document.title) || /Namiar na puls$/.test(document.title)"), 'tytuł strony zawiera nazwę „Namiar na puls”', await b.ocen('document.title'));
-  ok(await b.ocen("document.querySelector('.brand').textContent.trim() === 'Namiar na puls' && /Prototyp/i.test(document.querySelector('.site-header').textContent)"),
-    'nagłówek: marka „Namiar na puls” i widoczne oznaczenie „Prototyp”');
+  ok(await b.ocen("/^Namiar na puls$/i.test(document.title)"), 'tytuł strony zawiera nazwę „Namiar na puls”', await b.ocen('document.title'));
+  ok(await b.ocen("document.querySelector('.brand').textContent.trim() === 'Namiar na puls'"),
+    'nagłówek: marka „Namiar na puls”');
   ok(await b.ocen("/nie jest serwis(em)?\\s+administracji\\s+publicznej/i.test(document.body.textContent) && !document.querySelector('img[src*=\"Herb\" i], img[src*=\"godlo\" i]')"),
     'informacja, że to nie serwis administracji publicznej; brak godła');
   ok(await b.ocen("!/Misja AED</.test(document.body.outerHTML) && !/Misja AED(?! –)/.test(document.querySelector('.site-header').textContent)"), 'stara nazwa „Misja AED” nie jest marką strony');

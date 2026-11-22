@@ -1,4 +1,4 @@
-/* „Zatwierdź i wyślij do bazy gov.pl (Symulacja)” – zgłoszenie z 4 kroków zapisywane jako NOWY rekord w bazie SQLite „wyniki.gov”.
+/* „Wyślij do zatwierdzenia przez bazę gov.pl (Symulacja)” – zgłoszenie z 4 kroków zapisywane jako NOWY rekord w bazie SQLite „wyniki.gov”.
    To jest SYMULACJA: dane nigdy nie opuszczają komputera.
    - tryb 'serwer'       – aplikacja uruchomiona przez `python serwer.py`: zapis przez API (/api/zgloszenia) do pliku wyniki.gov,
    - tryb 'przegladarka' – GitHub Pages / inny serwer statyczny: ta sama baza w sql.js (SQLite w WebAssembly, vendor/sqljs),
@@ -226,6 +226,47 @@
     };
   }
 
+  /**
+   * Zgłoszenie z prostego formularza dysponenta (bez kroków 1–4 scalania): jedno źródło „FORMULARZ”, mapowanie 1:1,
+   * walidacja przeprowadzona w formularzu (podsumowanie bez błędów), rekordy = urządzenia z formularza.
+   * @param {Object[]} rekordy – urządzenia (pola wzorca)
+   * @param {{dysponent?:string, licencja?:string, tytul?:string}} [opcje]
+   */
+  function zbierzZgloszenieFormularza(rekordy, opcje) {
+    opcje = opcje || {};
+    const lista = (rekordy || []).map(function (r, i) {
+      const x = Object.assign({}, r);
+      x._kodZrodla = 'FORMULARZ'; x._wiersz = i + 1;
+      return x;
+    });
+    const nazwy = pola();
+    const dysp = String(opcje.dysponent || '').trim();
+    const tytul = opcje.tytul || ('Defibrylatory AED – ' + (dysp || 'formularz dysponenta'));
+    return {
+      format: 'namiar-na-puls/zgloszenie-gov',
+      wersja_formatu: WERSJA_FORMATU,
+      symulacja: true,
+      zrodlo_zgloszenia: 'formularz_dysponenta',
+      aplikacja: { nazwa: NAZWA_APLIKACJI, wersja: AED.version || null },
+      utworzono: teraz(),
+      tytul: tytul,
+      obszar: dysp || 'formularz dysponenta',
+      etap1_zrodla: [{ kod: 'FORMULARZ', nazwa: 'Formularz dysponenta na stronie', typ: 'FORMULARZ', dysponent: dysp, licencja: opcje.licencja || '',
+        priorytet: 1, dataPobrania: teraz(), liczba_wierszy: lista.length, kolumny: nazwy.slice(), meta: {} }],
+      etap2_mapowanie: [{ kod: 'FORMULARZ', automatyczne: true, pola: {} }],
+      etap3_walidacja: {
+        podsumowanie: { rekordy: lista.length, bledy: 0, ostrzezenia: 0, rekordyZBledami: 0, wgZrodla: {} },
+        problemy: [], problemyPominiete: 0, duplikaty: { wyszukano: false, decyzje: {} }, odstajace: []
+      },
+      etap4_wynik: {
+        metadane: { tytul: tytul, dysponent: dysp },
+        licencja: opcje.licencja ? { kod: opcje.licencja } : null,
+        raport_scalenia: null, pominieteBledne: 0,
+        rekordy: lista.map(function (r) { return rekordWynikowy(r, nazwy); })
+      }
+    };
+  }
+
   /** Kolumny podsumowania wyliczane z treści (te same reguły co kolumny_zgloszenia w serwer.py). */
   function kolumnyZgloszenia(zgl) {
     const e3 = zgl.etap3_walidacja || {}, e4 = zgl.etap4_wynik || {};
@@ -390,6 +431,101 @@
     wynik.tryb = t;
     postep('Zgłoszenie ' + wynik.numer + ' zapisano w bazie ' + NAZWA_BAZY + '.');
     return wynik;
+  }
+
+  // ------------------------------------------------------------ zrzut SQL (plik wyniki_gov.txt)
+  function sqlTekst(v) { return v === null || v === undefined ? 'NULL' : "'" + String(v).replace(/'/g, "''") + "'"; }
+  function sqlLiczba(v) { return typeof v === 'number' && isFinite(v) ? String(v) : 'NULL'; }
+  function sqlWartosc(v, typ) {
+    if (v === null || v === undefined || v === '') return 'NULL';
+    if (typ === 'boolean') return v === true || v === 'true' ? '1' : (v === false || v === 'false' ? '0' : 'NULL');
+    if (typ === 'number' || typ === 'integer') { const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.')); return isFinite(n) ? String(n) : sqlTekst(v); }
+    return sqlTekst(typeof v === 'object' ? JSON.stringify(v) : v);
+  }
+  function typSql(typ) { return typ === 'number' ? 'REAL' : (typ === 'integer' || typ === 'boolean' ? 'INTEGER' : 'TEXT'); }
+
+  /**
+   * Plik SQL z danymi wpisanymi i wysłanymi przyciskiem: tabela `zgloszenie` (kto i kiedy wysłał) oraz tabela `urzadzenia_aed`
+   * z KAŻDYM polem wzorca jako osobną kolumną (jeden wiersz = jedno urządzenie). Wykonanie w SQLite tworzy tabele i wstawia dane:
+   * `sqlite3 wyniki.db < wyniki_gov.txt`.
+   * @param {Object} zgl – zgłoszenie wysłane przez wyslij()
+   * @param {{id?:number, numer?:string, data_wyslania?:string}} wynik – odpowiedź wyslij()
+   */
+  async function zrzutSql(zgl, wynik) {
+    wynik = wynik || {};
+    const k = kolumnyZgloszenia(zgl);
+    const data = wynik.data_wyslania || teraz();
+    const numer = wynik.numer || ('GOV-' + data.slice(0, 4) + '-' + String(wynik.id || 1).padStart(6, '0'));
+    const rekordy = zgl.etap4_wynik.rekordy;
+    const pola = AED.wzorzec.schema.fields;
+    const zr = (zgl.etap1_zrodla || [])[0] || {};
+    const L = [];
+    L.push('-- wyniki_gov.txt – dane wpisane w formularzu i wysłane przyciskiem „Wyślij do zatwierdzenia przez bazę gov.pl” (aplikacja „' + NAZWA_APLIKACJI + '”).');
+    L.push('-- Zgłoszenie ' + numer + ', ' + data + ', urządzeń AED: ' + rekordy.length + '.');
+    L.push('-- Użycie: sqlite3 wyniki.db < wyniki_gov.txt   (to zwykły tekst z poleceniami SQL – możesz go też otworzyć w Notatniku albo wkleić do „Execute SQL” w DB Browser for SQLite).');
+    L.push('');
+    L.push('CREATE TABLE IF NOT EXISTS zgloszenie (');
+    L.push('  numer TEXT PRIMARY KEY,            -- numer zgłoszenia');
+    L.push('  data_wyslania TEXT NOT NULL,       -- data i czas wysłania (czas lokalny)');
+    L.push('  tytul TEXT,                        -- tytuł zbioru');
+    L.push('  dysponent TEXT,                    -- instytucja, która wysłała dane');
+    L.push('  licencja TEXT,                     -- licencja zbioru');
+    L.push('  liczba_urzadzen INTEGER NOT NULL   -- ile urządzeń AED w zgłoszeniu');
+    L.push(');');
+    L.push('');
+    L.push('CREATE TABLE IF NOT EXISTS urzadzenia_aed (');
+    L.push('  zgloszenie_numer TEXT NOT NULL REFERENCES zgloszenie(numer),');
+    pola.forEach(function (f, i) {
+      L.push('  ' + f.name + ' ' + typSql(f.type) + (i < pola.length - 1 ? ',' : '') + '  -- ' + String(f.title || f.name).replace(/\s+/g, ' '));
+    });
+    L.push(');');
+    L.push('');
+    L.push('BEGIN;');
+    L.push('INSERT INTO zgloszenie (numer, data_wyslania, tytul, dysponent, licencja, liczba_urzadzen) VALUES (' + [
+      sqlTekst(numer), sqlTekst(data), sqlTekst(k.tytul), sqlTekst(zr.dysponent || null), sqlTekst(k.licencja || zr.licencja || null), String(rekordy.length)].join(', ') + ');');
+    const kolumny = ['zgloszenie_numer'].concat(pola.map(function (f) { return f.name; })).join(', ');
+    rekordy.forEach(function (r) {
+      L.push('INSERT INTO urzadzenia_aed (' + kolumny + ') VALUES (' + [sqlTekst(numer)].concat(pola.map(function (f) { return sqlWartosc(r[f.name], f.type); })).join(', ') + ');');
+    });
+    L.push('COMMIT;');
+    L.push('');
+    return L.join('\n');
+  }
+
+  const KOL_LISTY = 'numer, data_wyslania, status, tytul, obszar, liczba_zrodel, liczba_rekordow, liczba_bledow, liczba_ostrzezen, licencja';
+  /** Imitacja portalu dane.gov.pl: lista zatwierdzonych zbiorów (zgłoszeń) z bazy wyniki.gov. */
+  async function lista() {
+    const t = await tryb();
+    if (t === 'serwer') {
+      const o = await pobierzJson(url('zgloszenia'), { cache: 'no-store' }, 10000);
+      if (!o.ok || !o.dane) throw blad('Nie udało się odczytać listy zbiorów (HTTP ' + o.status + ').', 'SERWER');
+      return o.dane.zbiory || [];
+    }
+    if (plikLokalny()) throw blad(KOMUNIKAT_FILE, 'FILE');
+    return zKolejki(async function () {
+      const db = await otworzBaze();
+      try { return wiersze(db, 'SELECT ' + KOL_LISTY + ' FROM zgloszenia ORDER BY id DESC LIMIT 200'); } finally { db.close(); }
+    });
+  }
+  /** Jeden zbiór wraz z urządzeniami (do 1000). */
+  async function zbior(numer) {
+    const t = await tryb();
+    if (t === 'serwer') {
+      const o = await pobierzJson(url('zgloszenia/' + encodeURIComponent(numer)), { cache: 'no-store' }, 10000);
+      if (!o.ok || !o.dane) throw blad((o.dane && o.dane.blad) || ('Nie udało się odczytać zbioru (HTTP ' + o.status + ').'), 'SERWER');
+      return o.dane;
+    }
+    if (plikLokalny()) throw blad(KOMUNIKAT_FILE, 'FILE');
+    return zKolejki(async function () {
+      const db = await otworzBaze();
+      try {
+        const z = wiersz(db, 'SELECT id, ' + KOL_LISTY + ' FROM zgloszenia WHERE numer = ?', [numer]);
+        if (!z) throw blad('Nie ma takiego zgłoszenia.', 'BRAK');
+        const id = z.id; delete z.id;
+        z.rekordy = wiersze(db, 'SELECT id_aed, nazwa, miejscowosc, szerokosc, dlugosc, status FROM rekordy_aed WHERE zgloszenie_id = ? ORDER BY id LIMIT 1000', [id]);
+        return z;
+      } finally { db.close(); }
+    });
   }
 
   async function statystyki() {
@@ -609,10 +745,14 @@
     ETAPY_SYMULACJI: ETAPY_SYMULACJI.slice(),
     tryb: tryb,
     zbierzZgloszenie: zbierzZgloszenie,
+    zbierzZgloszenieFormularza: zbierzZgloszenieFormularza,
     gotowosc: gotowosc,
     wyslij: wyslij,
     statystyki: statystyki,
+    lista: lista,
+    zbior: zbior,
     pobierzBaze: pobierzBaze,
+    zrzutSql: zrzutSql,
     kanoniczny: kanoniczny,
     sumaKontrolna: function (zgl) { return sha256(kanoniczny(zgl)); },
     kolumnyZgloszenia: kolumnyZgloszenia,

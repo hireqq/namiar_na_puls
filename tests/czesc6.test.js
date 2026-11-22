@@ -445,6 +445,24 @@ test('serwer.py: API, 3 zgłoszenia bez nadpisywania, pliki chronione, kopia baz
   }
 });
 
+test('gov: zrzutSql – wyniki_gov.txt zawiera dane z formularza w czytelnych kolumnach i wykonuje się w SQLite (apostrof, liczby, boole)', async function () {
+  const zgl = G.zbierzZgloszenieFormularza([
+    { id_aed: 'a-1', nazwa: "Szkoła im. O'Connora", miejscowosc: 'Krosno', szerokosc_geograficzna: 49.68, dlugosc_geograficzna: 21.77, status: 'aktywny',
+      dysponent_nazwa: 'Gmina Przykładowo', wewnatrz_budynku: true, telefon_kontaktowy: '+48 13 000 00 00' },
+    { id_aed: 'a-2', nazwa: 'Urząd', miejscowosc: 'Przemyśl', szerokosc_geograficzna: 49.78, dlugosc_geograficzna: 22.77, status: 'aktywny', dysponent_nazwa: 'Gmina Przykładowo' }
+  ], { dysponent: 'Gmina Przykładowo', licencja: 'CC0-1.0' });
+  const sql = await G.zrzutSql(zgl, { id: 7, numer: 'GOV-2026-000007', data_wyslania: '2026-11-22T10:00:00' });
+  assert.ok(/^-- wyniki_gov.txt/.test(sql), 'nagłówek pliku');
+  const db = await otworzSqlite();
+  db.exec(sql);
+  const z = db.exec('SELECT numer, tytul, dysponent, licencja, liczba_urzadzen FROM zgloszenie')[0].values;
+  assert.strictEqual(JSON.stringify(z), JSON.stringify([['GOV-2026-000007', 'Defibrylatory AED – Gmina Przykładowo', 'Gmina Przykładowo', 'CC0-1.0', 2]]));
+  const r = db.exec('SELECT nazwa, miejscowosc, szerokosc_geograficzna, wewnatrz_budynku, dysponent_nazwa, telefon_kontaktowy, zgloszenie_numer FROM urzadzenia_aed ORDER BY rowid')[0].values;
+  assert.strictEqual(JSON.stringify(r), JSON.stringify([["Szkoła im. O'Connora", 'Krosno', 49.68, 1, 'Gmina Przykładowo', '+48 13 000 00 00', 'GOV-2026-000007'],
+    ['Urząd', 'Przemyśl', 49.78, null, 'Gmina Przykładowo', null, 'GOV-2026-000007']]));
+  db.close();
+});
+
 test('gov: pod file:// czytelny błąd z poleceniem python serwer.py', async function () {
   ctx.location = { protocol: 'file:' };
   try {

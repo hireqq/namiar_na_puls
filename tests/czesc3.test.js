@@ -738,6 +738,13 @@ test('wydajność: 50 000 rekordów (szeroki plik, ~60 kolumn) – podpowiedź, 
   assert.ok(tZ + tW < 15000, 'zastosuj+waliduj ' + (tZ + tW) + ' ms');
 });
 
+test('wczytywanie: wiersze ze źródłem współrzędnych „osm” lub licencją ODbL są po cichu pomijane', async function () {
+  const csv = ['nazwa,zrodlo_wspolrzednych,licencja_rekordu', 'A,pomiar_gps,CC0-1.0', 'B,osm,ODbL-1.0', 'C,wskazanie_na_mapie,CC-BY-4.0', 'D,pomiar_gps,ODbL-1.0'].join('\n');
+  const w = await AED.zrodla.plik.wczytaj(new File([csv], 'stare.csv'));
+  assert.strictEqual(JSON.stringify(w.wiersze.map(function (r) { return r.nazwa; })), '["A","C"]');
+  assert.ok(!(w.meta.naprawy || []).some(function (n) { return /osm|odbl|openstreetmap/i.test(n); }), 'brak komunikatu w interfejsie');
+});
+
 // ------------------------------------------------------------ uruchomienie
 (async function () {
   let ok = 0, zle = 0;

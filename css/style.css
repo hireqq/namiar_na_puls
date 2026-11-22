@@ -122,7 +122,7 @@ html { scroll-padding-bottom: 6rem; scroll-padding-top: 1rem; }
   font-size: 1.18125rem; line-height: 1; min-height: 44px; }
 .brand:visited { color: var(--c-text); }
 .brand:hover { color: var(--c-text); text-decoration: underline; } /* gov.pl .govpl__logotype:hover */
-.brand__icon { width: 32px; height: 32px; color: var(--c-accent); flex: none; }
+.brand__icon { width: auto; height: 40px; flex: none; }
 .brand__portal { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .875rem; color: var(--c-muted); margin: 0 auto 0 0; }
 /* bez czerwonej pionowej kreski z nagłówka gov.pl – opis serwisu po prostu obok marki */
 .proto-badge { display: inline-block; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
@@ -454,7 +454,6 @@ textarea { resize: vertical; }
 input[type="url"][aria-invalid="true"], textarea[aria-invalid="true"] { border: 2px solid var(--c-err-fg); }
 fieldset[aria-invalid="true"] { border: 2px solid var(--c-err-fg); border-radius: 6px; padding: .5rem; }
 .wymagane { color: var(--c-err-fg); }
-.wyn-kategorie__lista { display: grid; gap: 0 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
 .radio input[type="checkbox"] { accent-color: var(--c-primary); }
 .alert h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
 .alert ul { margin: 0; padding-left: 1.25rem; }
@@ -617,3 +616,24 @@ fieldset[aria-invalid="true"] { border: 2px solid var(--c-err-fg); border-radius
 .fd-wiecej { border-top: 1px solid var(--c-border-soft); padding-top: .5rem; }
 .fd-wiecej > summary { cursor: pointer; font-weight: 600; color: var(--c-primary); min-height: 44px; display: flex; align-items: center; }
 .fd-wiecej[open] > summary { margin-bottom: .75rem; }
+/* Wyróżniony przycisk „Zatwierdź i wyślij do bazy gov.pl” (symulacja) */
+.btn--gov, .btn--gov:visited { background: #0a7a3d; color: #fff; border-color: #0a7a3d; box-shadow: 0 .25rem .75rem rgba(10, 122, 61, .35); text-transform: none; letter-spacing: 0; font-size: 1.1rem; max-width: 100%; white-space: normal; text-align: center; }
+.btn--gov:hover { background: #086230; border-color: #086230; color: #fff; }
+.btn--gov:active { background: #064f27; }
+.btn--gov[aria-disabled="true"] { background: #5f6b76; border-color: #5f6b76; box-shadow: none; cursor: not-allowed; }
+
+/* Stopka jak na gov.pl: logo + poziomy rząd odnośników, przycisk „Ustawienia prywatności” wygląda jak odnośnik */
+.site-footer__links { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; margin-bottom: .75rem; }
+.site-footer__logo { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.05rem; color: var(--c-text); text-decoration: none; }
+.site-footer__logo:visited { color: var(--c-text); }
+.site-footer__links ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+.site-footer__links a:not(.site-footer__logo), .privacy-settings-button { color: var(--c-primary); text-decoration: underline; }
+.site-footer__links a:not(.site-footer__logo):hover, .privacy-settings-button:hover { color: var(--c-primary-hover); text-decoration: none; }
+.privacy-settings-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.site-footer .site-footer__autorzy { margin: 0 0 .5rem; }
+.dialog-prywatnosc { max-width: min(36rem, calc(100vw - 2rem)); border: .125rem solid var(--c-primary); border-radius: var(--radius); padding: 1.25rem; }
+.dialog-prywatnosc::backdrop { background: rgba(0, 0, 0, .5); }
+.dialog-prywatnosc h2 { margin-top: 0; }
+.prywatnosc-lista { list-style: none; padding: 0; }
+.prywatnosc-lista li { margin-bottom: .5rem; }
+.dialog-prywatnosc__akcje { margin-top: 1rem; text-align: right; }

@@ -272,6 +272,18 @@
     return wynik;
   }
 
+  // ------------------------------------------- wycofane rekordy
+  /** Po cichu pomija wiersze ze starych plików przykładowych, których źródło współrzędnych (`osm`) lub licencja (`ODbL…`)
+      nie występuje już we wzorcu. Niczego nie pokazuje w interfejsie. */
+  function pominRekordyOsm(wynik) {
+    if (!wynik || !wynik.wiersze || !wynik.wiersze.length) return wynik;
+    const kol = function (nazwa) { return wynik.kolumny.indexOf(nazwa) >= 0; };
+    if (!kol('zrodlo_wspolrzednych') && !kol('licencja_rekordu')) return wynik;
+    const tekst = function (w, k) { return String(w[k] === undefined || w[k] === null ? '' : w[k]).trim().toLowerCase(); };
+    wynik.wiersze = wynik.wiersze.filter(function (w) { return tekst(w, 'zrodlo_wspolrzednych') !== 'osm' && !/^odbl/.test(tekst(w, 'licencja_rekordu')); });
+    return wynik;
+  }
+
   // ------------------------------------------------- zgodność ze wzorcem
   function zgodnoscZeWzorcem(kolumny) {
     const pola = AED.wzorzec.schema.fields;
@@ -309,6 +321,7 @@
       if (d.kodowanie === 'Windows-1250') wynik.meta.naprawy.push('Plik nie był w UTF-8 – odczytano go jako Windows-1250. Sprawdź polskie znaki w podglądzie.');
     }
     pominWierszePomocnicze(wynik);
+    pominRekordyOsm(wynik);
     if (!wynik.wiersze.length) throw new Error('Nie znaleziono w pliku żadnych wierszy z danymi.');
     wynik.meta.plik = { nazwa: plik.name, rozmiar: plik.size };
     wynik.meta.wzorzec = zgodnoscZeWzorcem(wynik.kolumny);
@@ -318,7 +331,7 @@
 
   /** Zmiana arkusza w już wczytanym skoroszycie. */
   function zmienArkusz(skoroszyt, nazwa) {
-    const w = pominWierszePomocnicze(parsujArkusz(skoroszyt, nazwa));
+    const w = pominRekordyOsm(pominWierszePomocnicze(parsujArkusz(skoroszyt, nazwa)));
     w.meta.wzorzec = zgodnoscZeWzorcem(w.kolumny);
     return w;
   }

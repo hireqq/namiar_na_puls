@@ -11,13 +11,6 @@
     { kod: 'daily', etykieta: 'Codziennie' }, { kod: 'weekly', etykieta: 'Co tydzień' }, { kod: 'monthly', etykieta: 'Co miesiąc' },
     { kod: 'quarterly', etykieta: 'Co kwartał' }, { kod: 'everyHalfYear', etykieta: 'Co pół roku' }, { kod: 'yearly', etykieta: 'Co rok' },
     { kod: 'irregular', etykieta: 'Nieregularnie' }, { kod: 'notPlanned', etykieta: 'Jednorazowe udostępnienie' }];
-  const KATEGORIE = [
-    { kod: 'HEAL', etykieta: 'Zdrowie' }, { kod: 'GOVE', etykieta: 'Rząd i sektor publiczny' }, { kod: 'REGI', etykieta: 'Regiony i miasta' },
-    { kod: 'JUST', etykieta: 'Sprawiedliwość, ustrój sądów i bezpieczeństwo publiczne' }, { kod: 'SOCI', etykieta: 'Ludność i społeczeństwo' },
-    { kod: 'EDUC', etykieta: 'Edukacja, kultura i sport' }, { kod: 'TRAN', etykieta: 'Transport' }, { kod: 'ECON', etykieta: 'Gospodarka i finanse' },
-    { kod: 'TECH', etykieta: 'Nauka i technologia' }, { kod: 'ENVI', etykieta: 'Środowisko' }, { kod: 'ENER', etykieta: 'Energia' },
-    { kod: 'AGRI', etykieta: 'Rolnictwo, rybołówstwo, leśnictwo i żywność' }, { kod: 'INTR', etykieta: 'Kwestie międzynarodowe' }];
-
   const PLIKI = [
     { kod: 'csv', nazwa: 'CSV', opis: 'Zalecany format do publikacji w dane.gov.pl. Kodowanie UTF-8, nagłówki zgodne ze wzorcem.', typ: 'text/csv;charset=utf-8', zalecany: true },
     { kod: 'xlsx', nazwa: 'XLSX (Excel)', opis: 'Do przeglądania i poprawiania w arkuszu kalkulacyjnym.', typ: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
@@ -282,7 +275,6 @@
     { klucz: 'opis', etykieta: 'Opis zbioru (po polsku)', wymagane: true, typ: 'textarea', pomoc: 'Co zawiera zbiór, skąd pochodzą dane, kogo trzeba wymienić jako źródło, gdzie zgłaszać błędy.' },
     { klucz: 'opisEn', etykieta: 'Opis zbioru (po angielsku)', typ: 'textarea', lang: 'en' },
     { klucz: 'czestotliwosc', etykieta: 'Częstotliwość aktualizacji', wymagane: true, typ: 'select' },
-    { klucz: 'kategorie', etykieta: 'Kategorie', wymagane: true, typ: 'checkbox', pomoc: 'Dla AED zwykle „Zdrowie”.' },
     { klucz: 'slowaKluczowe', etykieta: 'Słowa kluczowe', wymagane: true, typ: 'text', pomoc: 'Oddziel przecinkami.' },
     { klucz: 'extIdent', etykieta: 'Identyfikator zbioru w Twoim systemie', wymagane: true, typ: 'text', pomoc: 'Do 36 znaków. Nie zmieniaj go przy kolejnych aktualizacjach.' },
     { klucz: 'url', etykieta: 'Adres strony zbioru (opcjonalnie)', typ: 'url', pomoc: 'Np. strona BIP lub serwisu urzędu, na której opisano zbiór.' },
@@ -317,15 +309,11 @@
   function odczytajFormularz() {
     const m = st.metadane;
     POLA_META.forEach(function (p) {
-      if (p.typ === 'checkbox') {
-        m.kategorie = Array.from(document.querySelectorAll('#wyn-m-kategorie input:checked')).map(function (el) { return el.value; });
-      } else {
-        const el = $(idPola(p.klucz));
-        if (!el) return;
-        m[p.klucz] = p.klucz === 'slowaKluczowe'
-          ? el.value.split(/[,;]/).map(function (s) { return s.trim(); }).filter(Boolean)
-          : el.value.trim();
-      }
+      const el = $(idPola(p.klucz));
+      if (!el) return;
+      m[p.klucz] = p.klucz === 'slowaKluczowe'
+        ? el.value.split(/[,;]/).map(function (s) { return s.trim(); }).filter(Boolean)
+        : el.value.trim();
     });
     return m;
   }
@@ -339,19 +327,6 @@
     const opis = [p.pomoc ? id + '-pomoc' : null, id + '-blad'].filter(Boolean).join(' ');
     const etykieta = [p.etykieta, p.wymagane ? h('span', { class: 'wymagane', 'aria-hidden': 'true' }, ' *') : null];
     const zmiana = function () { st.edytowane[p.klucz] = true; if (st.sprawdzono) sprawdzMetadane(false); };
-    if (p.typ === 'checkbox') {
-      const lista = slownik('kategorie', KATEGORIE);
-      return h('fieldset', { class: 'radio-group field wyn-kategorie', id: id, 'aria-describedby': opis },
-        h('legend', null, etykieta, p.wymagane ? h('span', { class: 'visually-hidden' }, ' (wymagane)') : null),
-        p.pomoc ? h('p', { class: 'hint', id: id + '-pomoc' }, p.pomoc) : null,
-        h('div', { class: 'wyn-kategorie__lista' }, lista.map(function (k) {
-          const idk = id + '-' + k.kod;
-          return h('div', { class: 'radio' },
-            h('input', { type: 'checkbox', id: idk, value: k.kod, checked: st.metadane.kategorie.indexOf(k.kod) >= 0, onchange: zmiana }),
-            h('label', { for: idk }, k.etykieta));
-        })),
-        h('p', { class: 'field-error', id: id + '-blad', hidden: true }));
-    }
     let ctrl;
     if (p.typ === 'select') {
       ctrl = h('select', { id: id, required: p.wymagane || null, 'aria-describedby': opis, onchange: zmiana },

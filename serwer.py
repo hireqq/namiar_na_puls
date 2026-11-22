@@ -2,7 +2,7 @@
 """Namiar na puls – lokalny serwer aplikacji i baza zgłoszeń „wyniki.gov” (SYMULACJA wysyłki do gov.pl).
 
 Uruchomienie (z katalogu projektu, tylko biblioteka standardowa Pythona 3.8+):
-    python serwer.py [--port 8000] [--baza wyniki.gov] [--host 127.0.0.1]
+    python serwer.py [--port 8000] [--baza baza/wyniki.gov] [--host 127.0.0.1]
 i wejście na http://127.0.0.1:8000
 
 Serwuje pliki aplikacji (jak `python -m http.server`, ale bez listowania katalogów, bez plików ukrytych
@@ -99,6 +99,24 @@ class Baza:
     def statystyki(self):
         with self.polacz() as db:
             return statystyki(db)
+
+    def lista(self):
+        with self.polacz() as db:
+            return [dict(r) for r in db.execute(
+                "SELECT numer, data_wyslania, status, tytul, obszar, liczba_zrodel, liczba_rekordow, liczba_bledow, liczba_ostrzezen, licencja"
+                " FROM zgloszenia ORDER BY id DESC LIMIT 200")]
+
+    def zbior(self, numer):
+        with self.polacz() as db:
+            z = db.execute("SELECT id, numer, data_wyslania, status, tytul, obszar, liczba_zrodel, liczba_rekordow, liczba_bledow, liczba_ostrzezen, licencja"
+                           " FROM zgloszenia WHERE numer = ?", (numer,)).fetchone()
+            if z is None:
+                return None
+            o = dict(z)
+            ident = o.pop("id")
+            o["rekordy"] = [dict(r) for r in db.execute(
+                "SELECT id_aed, nazwa, miejscowosc, szerokosc, dlugosc, status FROM rekordy_aed WHERE zgloszenie_id = ? ORDER BY id LIMIT 1000", (ident,))]
+            return o
 
     def kopia(self):
         """Spójna kopia bazy (backup API) jako bajty – działa także w trakcie zapisów."""
@@ -324,6 +342,11 @@ class Obsluga(http.server.SimpleHTTPRequestHandler):
                                                "aplikacja": "Namiar na puls", "symulacja": True})
             if s == "/api/statystyki":
                 return self._wyslij_json(200, self.baza.statystyki())
+            if s == "/api/zgloszenia":
+                return self._wyslij_json(200, {"zbiory": self.baza.lista()})
+            if s.startswith("/api/zgloszenia/"):
+                z = self.baza.zbior(s[len("/api/zgloszenia/"):])
+                return self._wyslij_json(200, z) if z else self._blad(404, "Nie ma takiego zgłoszenia.")
             if s == "/api/baza":
                 tresc = self.baza.kopia()
                 self.send_response(200)
@@ -397,7 +420,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Namiar na puls – lokalny serwer aplikacji i baza zgłoszeń wyniki.gov (symulacja gov.pl).")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--host", default="127.0.0.1", help="adres nasłuchu (domyślnie tylko ten komputer: 127.0.0.1)")
-    p.add_argument("--baza", default=str(KORZEN / NAZWA_BAZY), help="ścieżka pliku bazy SQLite (domyślnie wyniki.gov w katalogu projektu)")
+    p.add_argument("--baza", default=str(KORZEN / "baza" / NAZWA_BAZY), help="ścieżka pliku bazy SQLite (domyślnie baza/wyniki.gov w katalogu projektu)")
     a = p.parse_args(argv)
     srv, b = utworz_serwer(a.host, a.port, a.baza)
     print("Namiar na puls: http://%s:%d/  (baza: %s, zgłoszeń: %d) – Ctrl+C kończy" % (a.host, srv.server_address[1], b.sciezka, b.liczba()),

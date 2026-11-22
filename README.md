@@ -50,7 +50,7 @@ js/sources/geokoder.js  geokodowanie GUGiK (UUG, ULDK)
 js/core/gov.js        symulowana wysyłka „do bazy gov.pl”: gotowość 4 kroków, zgłoszenie, zapis w wyniki.gov (API serwera
                       albo sql.js w przeglądarce); schemat bazy: js/core/gov_schemat.sql (wspólny z serwer.py)
 js/ui/                ekrany i pomocnicze funkcje DOM: zdalne.js (dane.gov.pl, krok 1), duplikaty.js (krok 3),
-                      wynik.js (krok 4), gov.js (przycisk „Zatwierdź i wyślij do bazy gov.pl (Symulacja)”),
+                      wynik.js (krok 4), gov.js (przycisk „Wyślij do zatwierdzenia przez bazę gov.pl”),
                       mapa.js (Leaflet + podkłady GUGiK), formularz.js (formularz dysponenta)
 serwer.py             lokalny serwer: aplikacja + /api/* bazy wyniki.gov (Python 3, bez zależności)
 vendor/sqljs/         sql.js (SQLite w WebAssembly) – ładowany leniwie tylko w trybie przeglądarkowym
@@ -75,13 +75,13 @@ vendor/               biblioteki (kopie lokalne z licencjami) – patrz LICENSES
 
 ## Baza wyniki.gov (symulacja gov.pl)
 
-Przycisk „Zatwierdź i wyślij do bazy gov.pl (Symulacja)” na końcu kroku 4 jest aktywny, gdy gotowe są wszystkie
+Przycisk „Wyślij do zatwierdzenia przez bazę gov.pl” w kroku 4, pod metadanymi jest aktywny, gdy gotowe są wszystkie
 4 kroki (źródła, mapowanie współrzędnych, walidacja i wyszukanie duplikatów, poprawne metadane); w przeciwnym razie
 pokazuje listę braków z linkami. Każde kliknięcie zapisuje **nowe** zgłoszenie (numer, data, status `zatwierdzono_gov`,
-dane 4 kroków, suma kontrolna) i pokazuje aktualną liczbę zgłoszeń w pliku.
+dane 4 kroków, suma kontrolna) i pokazuje tylko komunikat „Dane zostały wysłane do bazy dane.gov.pl”.
 
 - **Tryb serwera** (`python serwer.py`): `GET /api/status`, `POST /api/zgloszenia`, `GET /api/statystyki`,
-  `GET /api/baza` (spójna kopia pliku). Plik `wyniki.gov` leży w katalogu projektu i nie jest serwowany bezpośrednio.
+  `GET /api/baza` (spójna kopia pliku). Plik `baza/wyniki.gov` (opis: `baza/README.md`) leży w katalogu projektu i nie jest serwowany bezpośrednio.
 - **Tryb przeglądarki** (serwer statyczny, GitHub Pages): ta sama baza w sql.js, zapis w IndexedDB tej przeglądarki –
   znika po wyczyszczeniu danych witryny lub w trybie prywatnym, nie jest wspólna dla innych przeglądarek. Pod `file://`
   nie działa (komunikat z poleceniem `python serwer.py`).

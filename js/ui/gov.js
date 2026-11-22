@@ -1,13 +1,13 @@
-/* Krok 4, na końcu: „Zatwierdź i wyślij do bazy gov.pl (Symulacja)”.
+/* Krok 4, na końcu: „Wyślij do zatwierdzenia przez bazę gov.pl ”.
    Logika (gotowość, zgłoszenie, zapis w bazie „wyniki.gov”, tryb serwer/przeglądarka) – AED.gov (js/core/gov.js).
    Tu tylko interfejs. To SYMULACJA – dane nie trafiają do żadnego prawdziwego systemu gov.pl.
    WCAG: przycisk zablokowany przez aria-disabled (zostaje w kolejności Tab, opis mówi dlaczego), lista braków
    z linkami, stan ładowania z aria-busy i regionem aria-live, wynik z fokusem na nagłówku. */
 (function (AED) {
   'use strict';
-  const { h, oglos, liczba, odmiana, ikona, pobierz, rozmiar } = AED.dom;
+  const { h, oglos, liczba, odmiana, ikona, pobierz } = AED.dom;
 
-  const TEKST_PRZYCISKU = 'Zatwierdź i wyślij do bazy gov.pl (Symulacja)';
+  const TEKST_PRZYCISKU = 'Wyślij do zatwierdzenia przez bazę gov.pl';
   const PIERWSZY_KOMUNIKAT = 'Trwa weryfikacja i wysyłka danych do systemu gov.pl...';
   const OPOZNIENIE_MS = 1500;
   const ETAPY = {
@@ -22,9 +22,6 @@
     wysylanie: false,
     wynik: null,        // odpowiedź wyslij()
     blad: null,
-    tryb: null,         // 'serwer' | 'przegladarka'
-    statystyki: null,
-    bladPobrania: null,
     kontroler: null
   };
   let timer = null;
@@ -35,7 +32,6 @@
     try { return AED.ui.wynik && AED.ui.wynik.stanDlaGov ? AED.ui.wynik.stanDlaGov() : {}; } catch (e) { console.error(e); return {}; }
   }
   function komunikatBledu(e) { return String((e && e.message) || e || 'nieznany błąd'); }
-  function dataPl(iso) { return AED.dom.data(iso, true); }
 
   // ------------------------------------------------------------ gotowość
   function sprawdzGotowosc() {
@@ -102,7 +98,7 @@
     if (zablokowany) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
     opis.textContent = st.wysylanie ? 'Trwa wysyłka – poczekaj na wynik.'
       : g.brakModulu ? 'Przycisk nieaktywny: brak modułu wysyłki.'
-        : g.gotowe ? 'Utworzy nowe zgłoszenie w lokalnej bazie wyniki.gov (symulacja – nic nie trafia do gov.pl).'
+        : g.gotowe ? 'Wyśle dane do bazy dane.gov.pl (symulacja – zapis w lokalnej bazie projektu).'
           : 'Przycisk nieaktywny – najpierw uzupełnij braki z listy powyżej.';
   }
 
@@ -136,6 +132,14 @@
     wyslij();
   }
 
+  /** Pobiera plik wyniki_gov.txt z wysłanymi danymi (schemat bazy + INSERT-y zgłoszenia i rekordów AED). */
+  async function zapiszPlikBazy(zgloszenie, w) {
+    try {
+      pobierz('wyniki_gov.txt', await G().zrzutSql(zgloszenie, w), 'text/plain;charset=utf-8');
+      return true;
+    } catch (e) { console.warn('[AED] zapis pliku wyniki_gov.txt:', e); return false; }
+  }
+
   async function wyslij() {
     ustawZajety(true);
     st.blad = null; st.przerwano = false; st.doOgloszenia = null;
@@ -160,17 +164,12 @@
       const zgloszenie = G().zbierzZgloszenie(ui.metadane || undefined, { rekordy: ui.rekordy, pominieteBledne: ui.pominieteBledne || 0, walidacja: ui.walidacja });
       const w = await G().wyslij(zgloszenie, { onPostep: postep, opoznienieMs: OPOZNIENIE_MS, signal: st.kontroler.signal });
       st.wynik = w;
-      if (w && w.tryb) st.tryb = w.tryb;
-      st.statystyki = (w && w.statystyki) || null;
-      if (!st.statystyki || st.statystyki.liczba !== w.liczba) {
-        try { st.statystyki = await G().statystyki(); } catch (e) { console.warn('[AED] statystyki bazy:', e); }
-      }
+      st.plikBazy = await zapiszPlikBazy(zgloszenie, w);
       ustawZajety(false);
       $('gov-postep').textContent = '';
       renderujWynik();
       renderujGotowosc();
-      const tekst = 'Zgłoszenie ' + w.numer + ' zatwierdzone (symulacja). W pliku wyniki.gov jest ' + liczba(w.liczba) + ' ' +
-        odmiana(w.liczba, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń') + '.';
+      const tekst = 'Dane zostały wysłane do bazy dane.gov.pl (symulacja).';
       if (AED.router.trasa === 'wynik') {
         const n = $('gov-wynik-tytul'); if (n) n.focus();
         oglos(tekst);
@@ -207,76 +206,14 @@
         onclick: function () { if (!st.wysylanie) wyslij(); } }, 'Spróbuj ponownie'))));
   }
 
-  function opisTrybu() {
-    if (st.tryb === 'serwer') return 'Tryb: lokalny serwer (python serwer.py). Zgłoszenia zapisujemy w pliku wyniki.gov w katalogu projektu na tym komputerze.';
-    if (st.tryb === 'przegladarka') return 'Tryb: przeglądarka (bez serwera). Baza wyniki.gov jest zapisana tylko w tej przeglądarce – pobierz plik, aby go zachować.';
-    return '';
-  }
-
-  function renderujStatystyki(kont) {
-    const s = st.statystyki;
-    if (!s) return;
-    const ost = Array.isArray(s.ostatnie) ? s.ostatnie : [];
-    kont.appendChild(h('ul', { class: 'stat-row gov-stat', 'aria-label': 'Baza wyniki.gov' },
-      h('li', { class: 'stat stat--ok' }, h('span', { class: 'stat__liczba', id: 'gov-liczba-baza' }, liczba(s.liczba || 0)),
-        h('span', { class: 'stat__opis' }, odmiana(s.liczba || 0, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń') + ' w pliku wyniki.gov')),
-      s.sumaRekordow !== undefined ? h('li', { class: 'stat' }, h('span', { class: 'stat__liczba' }, liczba(s.sumaRekordow || 0)),
-        h('span', { class: 'stat__opis' }, odmiana(s.sumaRekordow || 0, 'rekord', 'rekordy', 'rekordów') + ' we wszystkich zgłoszeniach')) : null));
-    if (ost.length) {
-      const tabela = h('table', null,
-        h('caption', null, 'Ostatnie zgłoszenia w pliku wyniki.gov'),
-        h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Numer'), h('th', { scope: 'col' }, 'Data wysłania'),
-          h('th', { scope: 'col', class: 'num' }, 'Rekordów'), h('th', { scope: 'col' }, 'Tytuł zbioru'))),
-        h('tbody', null, ost.slice(0, 5).map(function (x) {
-          const n = x.liczba_rekordow !== undefined ? x.liczba_rekordow : (x.liczbaRekordow !== undefined ? x.liczbaRekordow : x.rekordow);
-          return h('tr', null, h('th', { scope: 'row' }, String(x.numer || x.id || '—')), h('td', null, dataPl(x.data_wyslania || x.data)),
-            h('td', { class: 'num' }, n === undefined || n === null ? '—' : liczba(n)), h('td', null, String(x.tytul || '—')));
-        })));
-      kont.appendChild(AED.dom.tabelaPrzewijana('Ostatnie zgłoszenia', tabela));
-    }
-  }
-
+  /** Po wysyłce – tylko krótkie potwierdzenie (bez statystyk bazy, listy zgłoszeń i pobierania pliku). */
   function renderujWynik() {
     const kont = $('gov-wynik');
     kont.textContent = '';
-    const w = st.wynik;
-    if (!w) return;
-    const potw = h('div', { class: 'alert alert--ok gov-potwierdzenie', role: 'status' },
-      h('h3', { id: 'gov-wynik-tytul', tabindex: '-1' }, ikona('ok'), ' Zgłoszenie zatwierdzone (symulacja)'),
-      h('dl', { class: 'dl-grid' },
-        h('dt', null, 'Numer zgłoszenia'), h('dd', { id: 'gov-numer' }, h('strong', null, String(w.numer || w.id))),
-        h('dt', null, 'Data wysłania'), h('dd', null, dataPl(w.data_wyslania)),
-        h('dt', null, 'Status'), h('dd', null, h('code', { id: 'gov-status' }, String(w.status || ''))),
-        h('dt', null, 'Zgłoszeń w pliku wyniki.gov'), h('dd', null, h('strong', { id: 'gov-liczba' }, liczba(w.liczba || 0)))),
-      h('p', { class: 'gov-wysylka__sym-tekst' }, 'To symulacja – zgłoszenie zapisano tylko w lokalnym pliku wyniki.gov, nie w systemie gov.pl.'));
-    kont.appendChild(potw);
-    renderujStatystyki(kont);
-    kont.appendChild(h('div', { class: 'alert-actions gov-akcje' },
-      h('button', { type: 'button', class: 'btn btn--secondary', id: 'gov-pobierz', 'aria-describedby': 'gov-tryb', onclick: pobierzBaze }, 'Pobierz plik wyniki.gov'),
-      h('p', { class: 'meta', id: 'gov-pobierz-stan', hidden: true })));
-    if (st.bladPobrania) kont.appendChild(h('p', { class: 'field-error', role: 'alert' }, st.bladPobrania));
-    const t = $('gov-tryb'); if (t) t.textContent = opisTrybu();
-  }
-
-  async function pobierzBaze() {
-    const btn = $('gov-pobierz');
-    if (!btn || btn.getAttribute('aria-disabled') === 'true') return;
-    btn.setAttribute('aria-disabled', 'true'); btn.classList.add('is-busy');
-    const stan = $('gov-pobierz-stan');
-    try {
-      const blob = await G().pobierzBaze();
-      const n = pobierz(G().NAZWA_BAZY || 'wyniki.gov', blob, 'application/vnd.sqlite3');
-      st.bladPobrania = null;
-      if (stan) { stan.hidden = false; stan.textContent = 'Pobrano plik wyniki.gov (' + rozmiar(n) + '). To baza SQLite – otworzysz ją np. w DB Browser for SQLite.'; }
-      oglos('Pobrano plik wyniki.gov, ' + rozmiar(n) + '.');
-    } catch (e) {
-      console.warn('[AED] pobieranie bazy:', e);
-      st.bladPobrania = 'Nie udało się pobrać pliku wyniki.gov: ' + komunikatBledu(e);
-      if (stan) { stan.hidden = false; stan.className = 'field-error'; stan.textContent = st.bladPobrania; }
-      oglos(st.bladPobrania, true);
-    } finally {
-      btn.removeAttribute('aria-disabled'); btn.classList.remove('is-busy');
-    }
+    if (!st.wynik) return;
+    kont.appendChild(h('div', { class: 'alert alert--ok gov-potwierdzenie', role: 'status' },
+      h('h3', { id: 'gov-wynik-tytul', tabindex: '-1' }, ikona('ok'), ' Dane zostały wysłane do bazy dane.gov.pl'),
+      h('p', { class: 'gov-wysylka__sym-tekst' }, 'Dane zapisano w lokalnej bazie projektu' + (st.plikBazy ? ' i pobrano plik wyniki_gov.txt z wysłanymi danymi.' : '.'))));
   }
 
   // ------------------------------------------------------------ całość
@@ -288,32 +225,15 @@
       kont.append(
         h('div', { id: 'gov-gotowosc' }),
         h('div', { class: 'gov-przycisk' },
-          h('button', { type: 'button', class: 'btn btn--primary btn--big', id: 'gov-wyslij', 'aria-describedby': 'gov-wyslij-opis', 'aria-disabled': 'true', onclick: klik },
+          h('button', { type: 'button', class: 'btn btn--gov btn--big', id: 'gov-wyslij', 'aria-describedby': 'gov-wyslij-opis', 'aria-disabled': 'true', onclick: klik },
             TEKST_PRZYCISKU),
           h('p', { class: 'hint', id: 'gov-wyslij-opis' })),
         h('p', { class: 'remote-status gov-postep', id: 'gov-postep', role: 'status', 'aria-live': 'polite' }), // stale w DOM – czytnik ogłasza zmiany
-        h('div', { id: 'gov-wynik' }),
-        h('p', { class: 'meta', id: 'gov-tryb' }));
+        h('div', { id: 'gov-wynik' }));
       if (st.wynik) renderujWynik(); else if (st.blad) renderujBlad();
     }
     renderujGotowosc();
     sprawdzGotowosc().then(renderujGotowosc);
-    if (G() && G().tryb && !st.tryb) {
-      Promise.resolve().then(function () { return G().tryb(); }).then(function (t) {
-        st.tryb = t;
-        const el = $('gov-tryb'); if (el) el.textContent = opisTrybu();
-        // w trybie serwera liczba zgłoszeń jest tania – pokazujemy ją od razu
-        if (t === 'serwer' && !st.wynik && G().statystyki) {
-          return G().statystyki().then(function (s) {
-            st.statystyki = s;
-            const el2 = $('gov-tryb');
-            if (el2 && s) el2.textContent = opisTrybu() + ' W pliku jest teraz ' + liczba(s.liczba || 0) + ' ' + odmiana(s.liczba || 0, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń') + '.';
-          });
-        }
-      }).catch(function (e) { console.warn('[AED] tryb bazy:', e); });
-    } else {
-      const el = $('gov-tryb'); if (el) el.textContent = opisTrybu();
-    }
   }
 
   function init() {
@@ -326,9 +246,9 @@
       renderuj();
       if (st.doOgloszenia) {
         const t = st.doOgloszenia; st.doOgloszenia = null;
-        setTimeout(function () { oglos(t + ' Wynik jest na końcu kroku 4.'); }, 300);
+        setTimeout(function () { oglos(t + ' Wynik jest w kroku 4, pod metadanymi.'); }, 300);
       } else if (st.przerwano) {
-        setTimeout(function () { oglos('Poprzednia wysyłka została przerwana. Nic nie zapisano – możesz wysłać ponownie na końcu kroku 4.'); }, 300);
+        setTimeout(function () { oglos('Poprzednia wysyłka została przerwana. Nic nie zapisano – możesz wysłać ponownie w kroku 4, pod metadanymi.'); }, 300);
       }
     });
     ['zrodla:zmiana', 'rekordy:zmiana', 'duplikaty:zmiana', 'wynik:zmiana'].forEach(function (ev) { AED.on(ev, zaplanuj); });
@@ -346,5 +266,5 @@
   }
 
   AED.ui = AED.ui || {};
-  AED.ui.gov = { init: init, renderuj: renderuj, odswiez: zaplanuj, get stan() { return st; } };
+  AED.ui.gov = { zapiszPlikBazy: zapiszPlikBazy, init: init, renderuj: renderuj, odswiez: zaplanuj, get stan() { return st; } };
 })(window.AED);
