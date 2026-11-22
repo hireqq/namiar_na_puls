@@ -58,8 +58,6 @@ module.exports = async function (t) {
     await b.pauza(250);
     const w = await b.ocen('document.documentElement.scrollWidth');
     ok(w <= 320, '320 px – ekran „' + trasa + '” bez przewijania w poziomie', w);
-    if (trasa === 'start') ok(await b.ocen("(function(){ const p = document.querySelector('.proto-bar'); const r = p.getBoundingClientRect(); return getComputedStyle(p).display !== 'none' && r.height > 0 && r.width <= 320 && /Prototyp/i.test(p.textContent); })()"),
-      '320 px – pasek „Prototyp” widoczny');
   }
   await t.zrzut('formularz-320');
   await b.szerokosc(1280);

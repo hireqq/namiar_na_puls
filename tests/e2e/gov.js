@@ -30,10 +30,9 @@ module.exports = async function (t) {
   ok(await b.ocen("/nieaktywny/.test(document.getElementById(document.getElementById('gov-wyslij').getAttribute('aria-describedby')).textContent)"),
     'opis przycisku mówi, dlaczego jest nieaktywny');
   ok(await b.ocen("!!document.querySelector('#gov-gotowosc a[href=\"#zrodla\"]')"), 'lista braków z linkiem do kroku 1');
-  await b.ocen("document.getElementById('gov-wyslij').click()");
-  await b.pauza(200);
-  ok(await b.ocen("document.activeElement.id === 'gov-braki-tytul' && document.getElementById('gov-postep').textContent === ''"),
-    'klik w zablokowany przycisk: fokus na liście braków, bez wysyłki');
+  // sekcja wysyłki jest pod metadanymi (w treści kroku 4) – bez danych cała treść kroku jest ukryta
+  ok(await b.ocen("document.getElementById('wyn-tresc').hidden && !!document.getElementById('wyn-tresc').contains(document.getElementById('gov-wysylka'))"),
+    'bez danych: sekcja wysyłki (pod metadanymi) jest ukryta razem z treścią kroku 4');
 
   // ---- kroki 1 → 4 (jeden plik)
   await b.ocen("location.hash = '#zrodla'; true");
